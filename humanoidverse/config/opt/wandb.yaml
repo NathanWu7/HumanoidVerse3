@@ -1,0 +1,11 @@
+# @package _global_
+
+use_wandb: True
+
+wandb:
+  wandb_project: humanoidverse
+  wandb_tags: null
+  wandb_group: null
+  wandb_id: null
+  wandb_entity: yuanhang0610
+  wandb_dir: ${experiment_dir}/.wandb
