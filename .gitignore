@@ -44,7 +44,7 @@ __pycache__
 
 # checkpoints
 
-*.pkl
+#*.pkl
 *.pt
 
 # virtualenv

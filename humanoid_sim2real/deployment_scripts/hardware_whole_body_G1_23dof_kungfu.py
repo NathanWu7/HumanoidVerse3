@@ -29,29 +29,33 @@ from unitree_sdk2py.utils.crc import CRC
 import time
 from collections import deque
 
-from common.command_helper import create_damping_cmd, create_zero_cmd, init_cmd_hg, init_cmd_go, MotorMode
-from common.remote_controller import RemoteController, KeyMap
+from humanoid_sim2real.common.command_helper import create_damping_cmd, create_zero_cmd, init_cmd_hg, init_cmd_go, MotorMode
+
+from humanoid_sim2real.common.remote_controller import RemoteController, KeyMap
 
 # from gamepad import Gamepad, parse_remote_data
 
 from motion_lib.motion_lib_robot import MotionLibRobot
 from omegaconf import OmegaConf
 import sys
-
-import mujoco
-import mujoco.viewer
 import onnxruntime
 
+DEBUG = False
+SIM = False
+
+if DEBUG:
+    import mujoco
+    import mujoco.viewer
+    
 HW_DOF = 29
+INIT_DOF = 12
 
 WALK_STRAIGHT = False
 LOG_DATA = False
 USE_GRIPPPER = False
 NO_MOTOR = False
 
-HUMANOID_XML = "assets/robots/g1/g1_29dof_anneal_23dof.xml"
-DEBUG = False
-SIM = False
+HUMANOID_XML = "humanoidverse/data/robots/g1/g1_29dof_anneal_23dof.xml"
 
 lowcmd_topic = "rt/lowcmd"
 lowstate_topic = "rt/lowstate"
@@ -85,7 +89,7 @@ def load_onnx_policy(path: str):
         ort_inputs = {input_name: input_numpy}
         ort_outs = session.run(None, ort_inputs)
         # 将 numpy 输出转换为 GPU 上的 torch Tensor
-        return torch.tensor(ort_outs[0], dtype=torch.float32, device="cuda:0")
+        return torch.tensor(ort_outs[0], dtype=torch.float32).to('cpu', copy=True)
     
     return run_inference
 
@@ -118,6 +122,8 @@ class G1():
     def __init__(self,task='stand'):
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.task = task
+
+        self.counter = 0
 
 
         self.num_envs = 1 
@@ -153,6 +159,7 @@ class G1():
                                 88.0, 50.0, 50.0,
                                 25.0, 25.0, 25.0, 25.0, 25.0, 5.0, 5.0,
                                 25.0, 25.0, 25.0, 25.0, 25.0, 5.0, 5.0,]
+        
         self.soft_dof_pos_limit = 0.98
         for i in range(len(self.joint_limit_lo)):
             # soft limits
@@ -162,7 +169,6 @@ class G1():
                 self.joint_limit_lo[i] = m - 0.5 * r * self.soft_dof_pos_limit
                 self.joint_limit_hi[i] = m + 0.5 * r * self.soft_dof_pos_limit
             
-        self.default_dof_pos_np = np.zeros(29)
         
         self.default_dof_pos_np = np.array([
                 -0.1,  0.0,  0.0,  0.3, -0.2, 0.0, 
@@ -209,24 +215,6 @@ def pd_control(target_q, q, kp, target_dq, dq, kd):
 
 class DeployNode():
 
-    # class WirelessButtons:
-    #     R1 =            0b00000001 # 1
-    #     start =            0b00000010 # 2
-    #     start =         0b00000100 # 4
-    #     select =        0b00001000 # 8
-    #     R2 =            0b00010000 # 16
-    #     L2 =            0b00100000 # 32
-    #     F1 =            0b01000000 # 64
-    #     F2 =            0b10000000 # 128
-    #     A =             0b100000000 # 256
-    #     B =             0b1000000000 # 512
-    #     X =             0b10000000000 # 1024
-    #     Y =             0b100000000000 # 2048
-    #     up =            0b1000000000000 # 4096
-    #     right =         0b10000000000000 # 8192
-    #     down =          0b100000000000000 # 16384
-    #     left =          0b1000000000000000 # 32768
-
     def __init__(self):
         super().__init__()  # type: ignore
         self.remote_controller = RemoteController() 
@@ -244,19 +232,10 @@ class DeployNode():
         self.lowstate_subscriber = ChannelSubscriber(lowstate_topic, LowState)
         self.lowstate_subscriber.Init(self.LowStateHgHandler, 10)
 
-        # self.motor_pub = self.create_publisher(LowCmd, "lowcmd_buffer", 1)
-        # self.motor_cmd = []
-        # for id in range(HW_DOF):
-        #     cmd=MotorCmd(q=0.0, dq=0.0, tau=0.0, kp=0.0, kd=0.0, mode=1, reserve=0)
-        #     self.motor_cmd.append(cmd)
-        # for id in range(HW_DOF, 35):
-        #     cmd=MotorCmd(q=0.0, dq=0.0, tau=0.0, kp=0.0, kd=0.0, mode=0, reserve=0)
-        #     self.motor_cmd.append(cmd)
-
         self.motor_pub_freq = 50
         self.dt = 1/self.motor_pub_freq
 
-        #self.counter = 0
+        self.counter = 0
 
         self.wait_for_low_state()
         init_cmd_hg(self.cmd_msg, self.mode_machine_, self.mode_pr_)
@@ -268,12 +247,20 @@ class DeployNode():
         self.motion_start_times = torch.zeros(1, dtype=torch.float32, device=self.device, requires_grad=False)
         self.motion_len = torch.zeros(1, dtype=torch.float32, device=self.device, requires_grad=False)
         
-
-        self.motion_config = OmegaConf.load("/home/yang/robot_deploy/Humanoid_robot_deployment/sim2sim/configs/g1_ref_kungfu.yaml")
+    
+        self.motion_config = OmegaConf.load("humanoid_sim2real/configs/g1_ref_kungfu.yaml")
         # init policy
         self.init_policy()
+        self.init_action_policy()
         self.prev_action = np.zeros(self.env.num_actions)
         self.start_policy = False
+        self.initing_policy = False
+
+        # for init policy
+        self.initing_action = np.zeros(INIT_DOF, dtype=np.float32)
+        self.init_target_dof_pos = self.env.default_dof_pos_np.copy()
+        self.init_obs = np.zeros(self.motion_config.init_num_obs, dtype=np.float32)
+        self.init_cmd = np.array([0.0, 0, 0])
 
 
         # init motion library
@@ -397,11 +384,7 @@ class DeployNode():
         # move time 2s
         total_time = 3
         num_step = int(total_time / self.dt)
-        
-        # dof_idx = self.config.leg_joint2motor_idx + self.config.arm_waist_joint2motor_idx
-        # kps = self.config.kps + self.config.arm_waist_kps
-        # kds = self.config.kds + self.config.arm_waist_kds
-        #default_pos = np.concatenate((self.config.default_angles, self.config.arm_waist_target), axis=0)
+    
         dof_size = HW_DOF
         
         # record the current pos
@@ -426,8 +409,8 @@ class DeployNode():
 
     def default_pos_state(self):
         print("Enter default pos state.")
-        print("Waiting for the Button start signal...")
-        while self.remote_controller.button[KeyMap.start] != 1:
+        print("Waiting for the Button B signal for initing...")
+        while self.remote_controller.button[KeyMap.B] != 1:
             if dp_node.remote_controller.button[KeyMap.select] == 1:
                 self.zero_torque_state()
                 print("Exit")
@@ -443,26 +426,14 @@ class DeployNode():
             self.send_cmd(self.cmd_msg)
             time.sleep(self.dt)
 
-
-        # while self.remote_controller.button[KeyMap.A] != 1:
-        #     for i in range(len(self.config.leg_joint2motor_idx)):
-        #         motor_idx = self.config.leg_joint2motor_idx[i]
-        #         self.cmd_msg.motor_cmd[motor_idx].q = self.config.default_angles[i]
-        #         self.cmd_msg.motor_cmd[motor_idx].qd = 0
-        #         self.cmd_msg.motor_cmd[motor_idx].kp = self.config.kps[i]
-        #         self.cmd_msg.motor_cmd[motor_idx].kd = self.config.kds[i]
-        #         self.cmd_msg.motor_cmd[motor_idx].tau = 0
-        #     for i in range(len(self.config.arm_waist_joint2motor_idx)):
-        #         motor_idx = self.config.arm_waist_joint2motor_idx[i]
-        #         self.cmd_msg.motor_cmd[motor_idx].q = self.config.arm_waist_target[i]
-        #         self.cmd_msg.motor_cmd[motor_idx].qd = 0
-        #         self.cmd_msg.motor_cmd[motor_idx].kp = self.config.arm_waist_kps[i]
-        #         self.cmd_msg.motor_cmd[motor_idx].kd = self.config.arm_waist_kds[i]
-        #         self.cmd_msg.motor_cmd[motor_idx].tau = 0
-        # self.send_cmd(self.cmd_msg)
         time.sleep(self.dt)
 
     def lowlevel_state_cb(self, msg: LowState):
+        if self.remote_controller.button[KeyMap.B]: #if initing is pressed
+            if self.initing_policy==False:
+                print(f'Button B is pressed! Initing Policy start! Waiting for the Button start signal for start...')
+            self.initing_policy = True
+
         if self.remote_controller.button[KeyMap.start]: #if start is pressed
             if self.start_policy==False:
                 print(f'Policy start!')
@@ -511,69 +482,56 @@ class DeployNode():
                 print("High limit Joint index: ", idx, self.joint_pos[idx[0]], np.array(self.env.joint_limit_hi)[idx[0]])
             Warning("Emergency stop")
             self.Emergency_stop = True
-            
-    ##############################
-    # motor commands
-    ##############################
 
-    # def set_motor_position(
-    #     self,
-    #     q: np.ndarray,
-    # ):
-    #     for i in range(HW_DOF):
-    #         self.cmd_msg.motor_cmd[motor_idx].q = self.config.arm_waist_target[i]
-    #         self.cmd_msg.motor_cmd[motor_idx].qd = 0
-    #         self.cmd_msg.motor_cmd[motor_idx].kp = self.config.arm_waist_kps[i]
-    #         self.cmd_msg.motor_cmd[motor_idx].kd = self.config.arm_waist_kds[i]
-    #         self.cmd_msg.motor_cmd[motor_idx].tau = 0
-    #     #     self.motor_cmd[i].q = q[i]
-    #     # self.cmd_msg.motor_cmd = self.motor_cmd.copy()
-    #     # self.cmd_msg.crc = get_crc(self.cmd_msg)
-    #     #self.cmd_msg.crc = crc.Crc(self.cmd_msg)
-    #     self.cmd_msg.crc = CRC().Crc(self.cmd_msg)
+    def pre_policy_observations(self):
+        self.counter += 1
+        # self.lowlevel_state_cb(self.low_state)
+
+        period = 0.8
+        count = self.counter * self.dt
+        phase = count % period / period
+        sin_phase = np.sin(2 * np.pi * phase)
+        cos_phase = np.cos(2 * np.pi * phase)
+
+        self.init_obs[0:3] = self.obs_ang_vel.copy()
+        self.init_obs[3:6] = self.obs_projected_gravity.cpu()
+        self.init_obs[6:9] = self.init_cmd # zeros at all time 
+        self.init_obs[9 : 9 + INIT_DOF] = self.obs_joint_pos[0: INIT_DOF].copy()
+        self.init_obs[9 + INIT_DOF : 9 + INIT_DOF * 2] = self.obs_joint_vel[0: INIT_DOF].copy()
+        self.init_obs[9 + INIT_DOF * 2 : 9 + INIT_DOF * 3] = self.initing_action
+        self.init_obs[9 + INIT_DOF * 3] = sin_phase
+        self.init_obs[9 + INIT_DOF * 3 + 1] = cos_phase
+
     ##############################
     # deploy policy
     ##############################
     def init_policy(self):
-        print("Preparing policy")
+        print("Preparing init policy")
         faulthandler.enable()
 
         # prepare environment
         self.env = G1()
 
         # load policy
-        file_pth = os.path.dirname(os.path.realpath(__file__))
-        self.policy = load_onnx_policy(self.motion_config["policy_path"])
-        #self.policy = torch.jit.load(self.motion_config["policy_path"], map_location=self.env.device)
-        #self.policy.to(self.env.device)
-        # actions = self.policy(self.env.obs_buf.detach().reshape(1, -1))  # first inference takes longer time
-        # self.policy = None
-        # init p_gains, d_gains, torque_limits
+        self.initial_policy = torch.jit.load(self.motion_config["init_policy_path"])
 
-        # for i in range(HW_DOF):
-        #     self.motor_cmd[i].q = self.env.default_dof_pos[0][i].item()
-        #     self.motor_cmd[i].dq = 0.0
-        #     self.motor_cmd[i].tau = 0.0
-        #     self.motor_cmd[i].kp = 0.0  # self.env.p_gains[i]  # 30
-        #     self.motor_cmd[i].kd = 0.0  # float(self.env.d_gains[i])  # 0.6
-        #self.cmd_msg.motor_cmd = self.motor_cmd.copy()
+    def init_action_policy(self):
+        print("Preparing action policy")
+        faulthandler.enable()
+
+        # prepare environment
+        # self.env = G1()
+
+        # load policy
+        self.policy = load_onnx_policy(self.motion_config["policy_path"])
         self.angles = self.env.default_dof_pos_np
     
+
     def compute_observations(self):
         """ Computes observations
         """
         motion_times = (self.episode_length_buf + 1) * self.dt + self.motion_start_times
         self.ref_motion_phase = motion_times / self._ref_motion_length
-        motion_res_cur = self._motion_lib.get_motion_state([0], motion_times)
-
-        # ref_body_pos_extend = motion_res_cur["rg_pos_t"][0]
-        ref_joint_pos = motion_res_cur["dof_pos"][0]
-        ref_joint_vel = motion_res_cur["dof_vel"][0]
-
-        # reference motion
-        # ref_joint_angles = ref_joint_pos.cpu() - np.concatenate((self.joint_pos[:19], self.joint_pos[22:26])).copy()
-        # ref_joint_velocities = ref_joint_vel.cpu() - np.concatenate((self.joint_vel[:19], self.joint_vel[22:26])).copy()
-
 
         self.env.obs_buf[:self.env.num_actions] = self.prev_action.copy()
         self.env.obs_buf[self.env.num_actions:self.env.num_actions+3] = self.obs_ang_vel.copy()
@@ -584,8 +542,6 @@ class DeployNode():
             history_numpy.append(self.env.hist_dict[key])
         self.env.obs_buf[self.env.num_actions*3+3 : self.env.num_actions*3+3+self.env.num_observations*(self.env.obs_context_len-1)] = np.concatenate(history_numpy, axis=-1)
         self.env.obs_buf[self.env.num_actions*3+3+self.env.num_observations*(self.env.obs_context_len-1): self.env.num_actions*3+6+self.env.num_observations*(self.env.obs_context_len-1)] = self.obs_projected_gravity.cpu()
-        # self.env.obs_buf[self.env.num_actions*3+6+self.env.num_observations*(self.env.obs_context_len-1): self.env.num_actions*4+6+self.env.num_observations*(self.env.obs_context_len-1)] = ref_joint_angles
-        # self.env.obs_buf[self.env.num_actions*4+6+self.env.num_observations*(self.env.obs_context_len-1): self.env.num_actions*5+6+self.env.num_observations*(self.env.obs_context_len-1)] = ref_joint_velocities
         self.env.obs_buf[self.env.num_actions*3+6+self.env.num_observations*(self.env.obs_context_len-1):] = self.ref_motion_phase.cpu()
         
         self.env.obs_tensor = torch.from_numpy(self.env.obs_buf).unsqueeze(0).to(self.device)
@@ -594,18 +550,35 @@ class DeployNode():
         self.env.hist_dict["dof_pos"] = np.concatenate([self.obs_joint_pos[:19], self.obs_joint_pos[22:26], self.env.hist_dict["dof_pos"][:-self.env.num_actions]])
         self.env.hist_dict["dof_vel"] = np.concatenate([self.obs_joint_vel[:19], self.obs_joint_vel[22:26], self.env.hist_dict["dof_vel"][:-self.env.num_actions]])
         self.env.hist_dict["projected_gravity"] = np.concatenate([self.obs_projected_gravity.cpu(), self.env.hist_dict["projected_gravity"][:-3]])
-        # self.env.hist_dict["ref_joint_angles"] = np.concatenate([ref_joint_angles, self.env.hist_dict["ref_joint_angles"][:-self.env.num_actions]])
-        # self.env.hist_dict["ref_joint_velocities"] = np.concatenate([ref_joint_velocities, self.env.hist_dict["ref_joint_velocities"][:-self.env.num_actions]])
         self.env.hist_dict["ref_motion_phase"] = np.concatenate([self.ref_motion_phase.cpu(), self.env.hist_dict["ref_motion_phase"][:-1]])
 
     @torch.no_grad()
     def run(self):
-        # self.counter += 1
+        
         loop_start_time = time.monotonic()
         # print("start main loop")
         self.lowlevel_state_cb(self.low_state)
 
-        if self.start_policy:
+        if self.initing_policy and not self.start_policy:
+            self.pre_policy_observations()
+
+            obs_tensor = torch.from_numpy(self.init_obs).unsqueeze(0)
+            self.initing_action = self.initial_policy(obs_tensor).detach().numpy().squeeze()
+            target_dof_pos = self.env.default_dof_pos_np[:INIT_DOF] + self.initing_action * self.env.scale_actions
+            
+
+            for i in range(HW_DOF):
+                self.cmd_msg.motor_cmd[i].q = target_dof_pos[i] if i < INIT_DOF else self.env.default_dof_pos_np[i]
+                self.cmd_msg.motor_cmd[i].qd = 0
+                self.cmd_msg.motor_cmd[i].tau = 0.0
+                self.cmd_msg.motor_cmd[i].kp = self.env.p_gains[i]  # 30
+                self.cmd_msg.motor_cmd[i].kd = (self.env.d_gains[i])  # 0.6
+
+            if not NO_MOTOR and not DEBUG:
+                self.send_cmd(self.cmd_msg)
+                time.sleep(self.dt)
+                
+        if self.initing_policy and self.start_policy:
             if DEBUG and SIM:
                 self.lowlevel_state_mujoco()
 

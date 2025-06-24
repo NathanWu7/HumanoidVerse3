@@ -78,8 +78,9 @@ HYDRA_FULL_ERROR=1 python humanoidverse/eval_agent.py \
 +simulator=genesis
 
 
-############ eval ###### sim 2 real ###############
-HYDRA_FULL_ERROR=1 python humanoidverse/eval_agent.py \
-+checkpoint=logs/ASAP/isaacsim45/20250623_161051-MotionTracking_test-motion_tracking-g1_29dof_anneal_23dof/model_1000.pt \ 
-+simulator=genesis
+############ eval ###### sim 2 real ###### example #########
+python3 humanoid_sim2real/deployment_scripts/your_deployment_script.py your_ethernet
+
+############ eval ###### sim 2 real ######## my settings#######
+python3 humanoid_sim2real/deployment_scripts/hardware_whole_body_G1_23dof_kungfu.py enp1s0
 ```

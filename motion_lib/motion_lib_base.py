@@ -43,7 +43,7 @@ def to_torch(tensor):
         return torch.from_numpy(tensor)
 
 class MotionLibBase():
-    def __init__(self, motion_lib_cfg, num_envs):
+    def __init__(self, motion_lib_cfg, num_envs, device=None):
         self.m_cfg = motion_lib_cfg
         self._sim_fps = 1/self.m_cfg.get("step_dt", 1/50)
 
