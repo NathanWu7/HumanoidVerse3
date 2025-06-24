@@ -1,7 +1,7 @@
 # HumanoidVerse3 
 Developed based on [HumanoidVerse ](README_V1.md) and [HumanoidVerse2](README_V2.md) please refer to [HumanoidVerse ](README_HumanoidVerse.md) and for environment settings and initial operation.  
 
-Aiming to handle issues of different versions and dependencies, integrate the sim2real part, and finally add some Motion conversion methods and data.
+Aiming to handle issues of different versions and dependencies, debug and integrate the sim2real part, and finally add some Motion conversion methods and data.
 
 [HumanoidVerse3 中文 ](README_V3_zh.md)
 

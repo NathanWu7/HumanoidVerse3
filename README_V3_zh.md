@@ -1,7 +1,7 @@
 # HumanoidVerse3 
 本项目基于 [HumanoidVerse ](README_V1.md) 和 [HumanoidVerse2](README_V2.md) 开发，环境配置与初始操作请参考 [HumanoidVerse ](README_HumanoidVerse.md)。
 
-旨在解决不同版本和依赖问题，集成 sim2real 部分，最终补充部分动作序列转换方法与数据。
+旨在解决不同版本和依赖问题，进行一些debug，集成 sim2real 部分，最终补充部分动作序列转换方法与数据。
 
 [HumanoidVerse3 English](README_V3.md)
 
