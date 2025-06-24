@@ -47,6 +47,7 @@ HYDRA_FULL_ERROR=1 python humanoidverse/train_agent.py \
 +terrain=terrain_locomotion_plane \
 +obs=asap_motion_tracking/deepmimic_a2c_nolinvel_LARGEnoise_history project_name=ASAP \
 experiment_name=MotionTracking \
+num_envs=4096 \   #for genesis num_env=1024
 robot.motion.motion_file=data/motions/PBHC/motion_data/Bruce_Lee_pose.pkl \
 rewards.reward_penalty_curriculum=True \
 rewards.reward_penalty_degree=0.00001 \
