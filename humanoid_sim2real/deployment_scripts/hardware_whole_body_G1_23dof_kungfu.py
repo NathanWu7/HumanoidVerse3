@@ -55,7 +55,7 @@ LOG_DATA = False
 USE_GRIPPPER = False
 NO_MOTOR = False
 
-HUMANOID_XML = "humanoidverse/data/robots/g1/g1_29dof_anneal_23dof.xml"
+HUMANOID_XML = "data/robots/g1/g1_29dof_anneal_23dof.xml"
 
 lowcmd_topic = "rt/lowcmd"
 lowstate_topic = "rt/lowstate"

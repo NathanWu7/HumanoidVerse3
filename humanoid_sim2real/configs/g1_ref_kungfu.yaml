@@ -57,7 +57,7 @@ dof_effort_limit_list: [88.0, 88.0, 88.0, 139.0, 50.0, 50.0,
 motion:
   motion_file : 'data/motions/PBHC/Horse-stance_punch.pkl'
   asset:
-    assetRoot: "humanoidverse/data/robots/g1"
+    assetRoot: "data/robots/g1"
     # assetFileName: "g1_29dof_anneal_23dof.xml"
     assetFileName: "g1_29dof_anneal_23dof_fitmotionONLY.xml"
     urdfFileName: "g1_29dof_anneal_23dof.urdf"

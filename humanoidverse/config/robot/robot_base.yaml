@@ -60,7 +60,7 @@ robot:
     urdf_file: null
     usd_file: null
     xml_file: null
-    asset_root: "humanoidverse/data/robots"
+    asset_root: "data/robots"
     self_collisions: True
     filter_ints: null
 

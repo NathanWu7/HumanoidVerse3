@@ -175,7 +175,7 @@ class IsaacGym(BaseSimulator):
         self.cubeB_asset = self.gym.create_box(self.sim, *([self.cubeB_size] * 3), cubeB_opts)
         self.cubeB_color = gymapi.Vec3(1.0, 0.95, 0.7)
         # Load tote
-        asset_root = "humanoidverse/data/totes"
+        asset_root = "data/totes"
         urdf_file = "urdf/tote.urdf"
         asset_options = gymapi.AssetOptions()
         asset_options.default_dof_drive_mode = gymapi.DOF_MODE_POS

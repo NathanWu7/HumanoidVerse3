@@ -243,7 +243,7 @@ robot:
   motion:
     motion_file : 'data/motions/OmniH2O/stable_punch.pkl'
     asset:
-      assetRoot: "humanoidverse/data/robots/h1/"
+      assetRoot: "data/robots/h1/"
       assetFileName: "h1.xml"
       urdfFileName: "h1.urdf"
 

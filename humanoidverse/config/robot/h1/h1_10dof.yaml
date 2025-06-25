@@ -127,9 +127,9 @@ robot:
 
 
   motion:
-    motion_file : 'humanoidverse/data/motions/h1/h1_lift_box.pkl'
+    motion_file : 'data/motions/h1/h1_lift_box.pkl'
     asset:
-      assetRoot: "humanoidverse/data/robots/h1/"
+      assetRoot: "data/robots/h1/"
       assetFileName: "h1_10dof.xml"
       urdfFileName: "h1_10dof.urdf"
     humanoid_type: h1
