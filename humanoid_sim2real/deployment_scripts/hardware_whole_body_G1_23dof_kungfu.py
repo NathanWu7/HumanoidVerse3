@@ -12,9 +12,7 @@ import matplotlib.pyplot as plt
 # from rclpy.node import Node
 
 from unitree_sdk2py.core.channel import ChannelPublisher, ChannelFactoryInitialize, ChannelSubscriber
-
 from unitree_sdk2py.idl.default import unitree_hg_msg_dds__LowCmd_, unitree_hg_msg_dds__LowState_
-
 from unitree_sdk2py.idl.unitree_hg.msg.dds_ import LowState_ as LowState
 from unitree_sdk2py.idl.unitree_hg.msg.dds_ import LowCmd_ as LowCmd
 from unitree_sdk2py.idl.unitree_hg.msg.dds_ import MotorCmd_ as MotorCmd
@@ -48,11 +46,9 @@ if DEBUG:
     import mujoco.viewer
     
 HW_DOF = 29
-INIT_DOF = 12
 
-WALK_STRAIGHT = False
+USE_WIRELESS_REMOTE = True
 LOG_DATA = False
-USE_GRIPPPER = False
 NO_MOTOR = False
 
 HUMANOID_XML = "data/robots/g1/g1_29dof_anneal_23dof.xml"
@@ -81,10 +77,10 @@ def load_onnx_policy(path: str):
         执行模型前向推理
         
         参数：
-            input_numpy: 输入观测，shape: (1, obs_dim)，dtype: float32
+            input_numpy: 输入观测, shape: (1, obs_dim), dtype: float32
         
         返回：
-            action_tensor: 模型输出，shape: (1, action_dim)，device="cuda:0"，dtype=torch.float32
+            action_tensor: 模型输出, shape: (1, action_dim), device="cuda:0", dtype=torch.float32
         """
         ort_inputs = {input_name: input_numpy}
         ort_outs = session.run(None, ort_inputs)
@@ -125,7 +121,9 @@ class G1():
 
         self.counter = 0
 
+        self.configs = OmegaConf.load("humanoid_sim2real/configs/g1_ref_kungfu.yaml")
 
+        # settings for action policy
         self.num_envs = 1 
         self.num_observations = 76
         self.num_actions = 23
@@ -139,26 +137,19 @@ class G1():
         self.scale_dof_vel = 0.05
         self.scale_actions = 0.25
         self.scale_base_force = 0.01
-        self.scaleref_motion_phase = 1.0
+        self.scale_ref_motion_phase = 1.0
 
-        self.p_gains = np.array([100., 100., 100., 200., 20., 20.,
-                                 100., 100., 100., 200., 20., 20.,
-                                 400., 400., 400.,
-                                 90., 60., 20., 60., 40., 40., 40.,
-                                 90., 60., 20., 60., 40., 40., 40.,])
-        self.d_gains = np.array([2.5, 2.5, 2.5, 5.0, 0.2, 0.1, 
-                                 2.5, 2.5, 2.5, 5.0, 0.2, 0.1,
-                                 5.0, 5.0, 5.0,
-                                 2.0, 1.0, 0.4, 1.0, 1.0, 1.0, 1.0,
-                                 2.0, 1.0, 0.4, 1.0, 1.0, 1.0, 1.0,])
+        # prepare gait commands
+        self.cycle_time = 0.64
+        self.gait_indices = torch.zeros(self.num_envs, dtype=torch.float, device=self.device, requires_grad=False)
 
-        self.joint_limit_lo = [-2.5307, -0.5236, -2.7576, -0.087267, -100, -100, -2.5307,-2.9671,-2.7576,-0.087267,-100,-100, -2.618,-0.52,-0.52,-3.0892,-1.5882,-2.618,-1.0472, -1.972222054,-1.614429558,-1.614429558,-3.0892,-2.2515,-2.618,-1.0472,-1.972222054,-1.614429558,-1.614429558]
-        self.joint_limit_hi = [2.8798, 2.9671, 2.7576, 2.8798, 100, 100, 2.8798, 0.5236, 2.7576, 2.8798, 100, 100, 2.618, 0.52, 0.52,2.6704,2.2515,2.618,2.0944,1.972222054,1.614429558,1.614429558,2.6704,1.5882,2.618,2.0944, 1.972222054,1.614429558,1.614429558]
-        self.torque_limits = [88.0, 88.0, 88.0, 139.0, 50.0, 50.0, 
-                                88.0, 88.0, 88.0, 139.0, 50.0, 50.0, 
-                                88.0, 50.0, 50.0,
-                                25.0, 25.0, 25.0, 25.0, 25.0, 5.0, 5.0,
-                                25.0, 25.0, 25.0, 25.0, 25.0, 5.0, 5.0,]
+        self.init_kps = np.asarray(self.configs.init_kps, dtype=np.float32)
+        self.init_kds = np.asarray(self.configs.init_kds, dtype=np.float32)
+        self.p_gains = np.asarray(self.configs.kps, dtype=np.float32)
+        self.d_gains = np.asarray(self.configs.kds, dtype=np.float32)
+        self.joint_limit_lo = np.asarray(self.configs.dof_pos_lower_limit_list, dtype=np.float32)
+        self.joint_limit_hi = np.asarray(self.configs.dof_pos_upper_limit_list, dtype=np.float32)
+        self.torque_limits = np.asarray(self.configs.dof_effort_limit_list, dtype=np.float32)
         
         self.soft_dof_pos_limit = 0.98
         for i in range(len(self.joint_limit_lo)):
@@ -168,15 +159,15 @@ class G1():
                 r = self.joint_limit_hi[i] - self.joint_limit_lo[i]
                 self.joint_limit_lo[i] = m - 0.5 * r * self.soft_dof_pos_limit
                 self.joint_limit_hi[i] = m + 0.5 * r * self.soft_dof_pos_limit
-            
         
-        self.default_dof_pos_np = np.array([
-                -0.1,  0.0,  0.0,  0.3, -0.2, 0.0, 
-                -0.1,  0.0,  0.0,  0.3, -0.2, 0.0,
-                0.0, 0.0, 0.0,
-                0.2, 0.2, 0.0, 0.9, 0, 0, 0,
-                0.2, -0.2, 0.0, 0.9, 0, 0, 0,])
+        self.default_pre_dof_pos_np = np.asarray(self.configs.default_pre_dof_pos, dtype=np.float32)
+        self.default_dof_pos_np = np.asarray(self.configs.default_dof_pos, dtype=np.float32)
         
+        default_pre_dof_pos = torch.tensor(self.default_pre_dof_pos_np, dtype=torch.float, device=self.device, requires_grad=False)
+        self.default_pre_dof_pos = default_pre_dof_pos.unsqueeze(0)
+
+        print(f"default_pre_dof_pos.shape: {self.default_pre_dof_pos.shape}")
+
         default_dof_pos = torch.tensor(self.default_dof_pos_np, dtype=torch.float, device=self.device, requires_grad=False)
         self.default_dof_pos = default_dof_pos.unsqueeze(0)
 
@@ -247,21 +238,24 @@ class DeployNode():
         self.motion_start_times = torch.zeros(1, dtype=torch.float32, device=self.device, requires_grad=False)
         self.motion_len = torch.zeros(1, dtype=torch.float32, device=self.device, requires_grad=False)
         
-    
+        # config
         self.motion_config = OmegaConf.load("humanoid_sim2real/configs/g1_ref_kungfu.yaml")
+
         # init policy
-        self.init_policy()
+        self.init_policy() # G1 init inside
         self.init_action_policy()
         self.prev_action = np.zeros(self.env.num_actions)
+        self.init_prev_action = np.zeros(self.motion_config.init_num_actions)
         self.start_policy = False
-        self.initing_policy = False
+        self.init_policy_flag = False
 
         # for init policy
-        self.initing_action = np.zeros(INIT_DOF, dtype=np.float32)
-        self.init_target_dof_pos = self.env.default_dof_pos_np.copy()
-        self.init_obs = np.zeros(self.motion_config.init_num_obs, dtype=np.float32)
+        self.init_obs = torch.zeros(1, self.motion_config.init_num_obs * self.motion_config.init_obs_context_len, dtype=torch.float, device=self.device, requires_grad=False)
+        self.init_obs_history = deque(maxlen=self.motion_config.init_obs_context_len)
+        for _ in range(self.motion_config.init_obs_context_len):
+            self.init_obs_history.append(torch.zeros(
+                1, self.motion_config.init_num_obs, dtype=torch.float, device=self.device))
         self.init_cmd = np.array([0.0, 0, 0])
-
 
         # init motion library
         self._init_motion_lib()
@@ -300,6 +294,17 @@ class DeployNode():
         self.stand_up = False
         self.stand_up = True
 
+        # commands
+        self.lin_vel_deadband = 0.1
+        self.ang_vel_deadband = 0.1
+        self.move_by_wireless_remote = USE_WIRELESS_REMOTE
+        self.cmd_px_range = [0.1, 2.5]
+        self.cmd_nx_range = [0.1, 2]
+        self.cmd_py_range = [0.1, 0.5]
+        self.cmd_ny_range = [0.1, 0.5]
+        self.cmd_pyaw_range = [0.2, 1.0]
+        self.cmd_nyaw_range = [0.2, 1.0]
+
         # start
         self.start_time = time.monotonic()
         print("Press \"start\" to start policy")
@@ -319,6 +324,8 @@ class DeployNode():
         self.obs_hist = []
 
         # cmd and observation
+        self.xyyaw_command = np.array([0., 0., 0.], dtype= np.float32)
+        self.commands_scale = np.array([self.env.scale_base_lin_vel, self.env.scale_base_lin_vel, self.env.scale_base_ang_vel])
         self.up_axis_idx = 2 # 2 for z, 1 for y -> adapt gravity accordingly
         self.gravity_vec = torch.zeros((1, 3), device= self.device, dtype= torch.float32)
         self.gravity_vec[:, self.up_axis_idx] = -1
@@ -329,16 +336,50 @@ class DeployNode():
         self.Emergency_stop = False
         self.stop = False
 
-
         #self.gamepad = Gamepad()
         
-
         time.sleep(1)
 
     def LowStateHgHandler(self, msg: LowState):
         self.low_state = msg
         self.mode_machine_ = self.low_state.mode_machine
         self.remote_controller.set(self.low_state.wireless_remote)
+        self.joy_stick_callback(self.remote_controller)
+    
+    def joy_stick_callback(self, msg: RemoteController):
+        if self.move_by_wireless_remote:
+            # left-y for forward/backward
+            ly = msg.ly
+            if ly > self.lin_vel_deadband:
+                vx = (ly - self.lin_vel_deadband) / (1 - self.lin_vel_deadband) # (0, 1)
+                vx = vx * (self.cmd_px_range[1] - self.cmd_px_range[0]) + self.cmd_px_range[0]
+            elif ly < -self.lin_vel_deadband:
+                vx = (ly + self.lin_vel_deadband) / (1 - self.lin_vel_deadband) # (-1, 0)
+                vx = vx * (self.cmd_nx_range[1] - self.cmd_nx_range[0]) - self.cmd_nx_range[0]
+            else:
+                vx = 0
+            # left-x for turning left/right
+            lx = -msg.lx
+            if lx > self.ang_vel_deadband:
+                yaw = (lx - self.ang_vel_deadband) / (1 - self.ang_vel_deadband)
+                yaw = yaw * (self.cmd_pyaw_range[1] - self.cmd_pyaw_range[0]) + self.cmd_pyaw_range[0]
+            elif lx < -self.ang_vel_deadband:
+                yaw = (lx + self.ang_vel_deadband) / (1 - self.ang_vel_deadband)
+                yaw = yaw * (self.cmd_nyaw_range[1] - self.cmd_nyaw_range[0]) - self.cmd_nyaw_range[0]
+            else:
+                yaw = 0
+            # right-x for side moving left/right
+            rx = -msg.rx
+            if rx > self.lin_vel_deadband:
+                vy = (rx - self.lin_vel_deadband) / (1 - self.lin_vel_deadband)
+                vy = vy * (self.cmd_py_range[1] - self.cmd_py_range[0]) + self.cmd_py_range[0]
+            elif rx < -self.lin_vel_deadband:
+                vy = (rx + self.lin_vel_deadband) / (1 - self.lin_vel_deadband)
+                vy = vy * (self.cmd_ny_range[1] - self.cmd_ny_range[0]) - self.cmd_ny_range[0]
+            else:
+                vy = 0
+            self.xyyaw_command = np.array([vx, vy, yaw], dtype= np.float32)
+            print(self.xyyaw_command) # TODO: remove
 
     def send_cmd(self, cmd: LowCmd):
         cmd.crc = CRC().Crc(cmd)
@@ -365,7 +406,6 @@ class DeployNode():
         self.motion_start_idx = 0
         self.num_motions = self._motion_lib._num_unique_motions
 
-
     def wait_for_low_state(self):
         while self.low_state.tick == 0:
             time.sleep(self.dt)
@@ -381,7 +421,7 @@ class DeployNode():
 
     def move_to_default_pos(self):
         print("Moving to default pos.")
-        # move time 2s
+        # moving time 3s
         total_time = 3
         num_step = int(total_time / self.dt)
     
@@ -397,15 +437,14 @@ class DeployNode():
             alpha = i / num_step
             for j in range(HW_DOF):
                 motor_idx = j
-                target_pos = self.env.default_dof_pos_np[j]
+                target_pos = self.env.default_pre_dof_pos_np[j]
                 self.cmd_msg.motor_cmd[motor_idx].q = init_dof_pos[j] * (1 - alpha) + target_pos * alpha
                 self.cmd_msg.motor_cmd[motor_idx].qd = 0
-                self.cmd_msg.motor_cmd[motor_idx].kp = self.env.p_gains[j]
-                self.cmd_msg.motor_cmd[motor_idx].kd = self.env.d_gains[j]
+                self.cmd_msg.motor_cmd[motor_idx].kp = self.env.init_kps[j]
+                self.cmd_msg.motor_cmd[motor_idx].kd = self.env.init_kds[j]
                 self.cmd_msg.motor_cmd[motor_idx].tau = 0
             self.send_cmd(self.cmd_msg)
             time.sleep(self.dt)
-
 
     def default_pos_state(self):
         print("Enter default pos state.")
@@ -417,11 +456,10 @@ class DeployNode():
                 exit()
             for j in range(HW_DOF):
                 motor_idx = j
-                #target_pos = self.env.default_dof_pos_np[j]
-                self.cmd_msg.motor_cmd[motor_idx].q = self.env.default_dof_pos_np[j]
+                self.cmd_msg.motor_cmd[motor_idx].q = self.env.default_pre_dof_pos_np[j]
                 self.cmd_msg.motor_cmd[motor_idx].qd = 0
-                self.cmd_msg.motor_cmd[motor_idx].kp = self.env.p_gains[j]
-                self.cmd_msg.motor_cmd[motor_idx].kd = self.env.d_gains[j]
+                self.cmd_msg.motor_cmd[motor_idx].kp = self.env.init_kps[j]
+                self.cmd_msg.motor_cmd[motor_idx].kd = self.env.init_kds[j]
                 self.cmd_msg.motor_cmd[motor_idx].tau = 0
             self.send_cmd(self.cmd_msg)
             time.sleep(self.dt)
@@ -430,9 +468,9 @@ class DeployNode():
 
     def lowlevel_state_cb(self, msg: LowState):
         if self.remote_controller.button[KeyMap.B]: #if initing is pressed
-            if self.initing_policy==False:
+            if self.init_policy_flag==False:
                 print(f'Button B is pressed! Initing Policy start! Waiting for the Button start signal for start...')
-            self.initing_policy = True
+            self.init_policy_flag = True
 
         if self.remote_controller.button[KeyMap.start]: #if start is pressed
             if self.start_policy==False:
@@ -483,27 +521,8 @@ class DeployNode():
             Warning("Emergency stop")
             self.Emergency_stop = True
 
-    def pre_policy_observations(self):
-        self.counter += 1
-        # self.lowlevel_state_cb(self.low_state)
-
-        period = 0.8
-        count = self.counter * self.dt
-        phase = count % period / period
-        sin_phase = np.sin(2 * np.pi * phase)
-        cos_phase = np.cos(2 * np.pi * phase)
-
-        self.init_obs[0:3] = self.obs_ang_vel.copy()
-        self.init_obs[3:6] = self.obs_projected_gravity.cpu()
-        self.init_obs[6:9] = self.init_cmd # zeros at all time 
-        self.init_obs[9 : 9 + INIT_DOF] = self.obs_joint_pos[0: INIT_DOF].copy()
-        self.init_obs[9 + INIT_DOF : 9 + INIT_DOF * 2] = self.obs_joint_vel[0: INIT_DOF].copy()
-        self.init_obs[9 + INIT_DOF * 2 : 9 + INIT_DOF * 3] = self.initing_action
-        self.init_obs[9 + INIT_DOF * 3] = sin_phase
-        self.init_obs[9 + INIT_DOF * 3 + 1] = cos_phase
-
     ##############################
-    # deploy policy
+    # deploy initial policy (before target action)
     ##############################
     def init_policy(self):
         print("Preparing init policy")
@@ -515,6 +534,56 @@ class DeployNode():
         # load policy
         self.initial_policy = torch.jit.load(self.motion_config["init_policy_path"])
 
+    def pre_policy_observations(self):
+        phase = self._get_phase()
+
+        sin_pos = torch.sin(2 * torch.pi * phase)
+        cos_pos = torch.cos(2 * torch.pi * phase)
+
+        obs_buf = torch.tensor(np.concatenate((sin_pos.clone().detach().cpu().numpy(), # 1
+                            cos_pos.clone().detach().cpu().numpy(), # 1
+                            self.xyyaw_command * self.commands_scale, # dim 3
+                            # self.obs_joint_pos[:12], # dim 12
+                            # self.obs_joint_pos[15:29], # dim 14
+                            # self.obs_joint_vel[:12], # dim 12
+                            # self.obs_joint_vel[15:29], # dim 12
+                            self.obs_joint_pos[:29], # dim 29
+                            self.obs_joint_vel[:29], # dim 29
+                            self.prepolicy_prev_action, # dim 29
+                            self.obs_ang_vel,  # dim 3
+                            self.obs_imu,  # 3
+                            np.zeros(6), # dim 6
+                            ), axis=-1), dtype=torch.float, device=self.device).unsqueeze(0)
+        
+        obs_now = obs_buf.clone()
+        self.init_obs_history.append(obs_now)
+        obs_buf_all = torch.cat([self.init_obs_history[i]
+                                 for i in range(self.init_obs_history.maxlen)], dim=-1)
+        self.init_obs = obs_buf_all
+
+    def get_walking_cmd_mask(self):
+        walking_mask0 = np.abs(self.xyyaw_command[0]) > 0.1
+        walking_mask1 = np.abs(self.xyyaw_command[1]) > 0.1
+        walking_mask2 = np.abs(self.xyyaw_command[2]) > 0.2
+        walking_mask = walking_mask0 | walking_mask1 | walking_mask2
+
+        walking_mask = walking_mask | (self.env.gait_indices.cpu() >= self.dt / self.env.cycle_time).numpy()[0]
+        walking_mask |= np.logical_or(np.abs(self.obs_imu[1])>0.1, np.abs(self.obs_imu[0])>0.05)
+        return walking_mask
+    
+    def _get_phase(self):
+        return self.env.gait_indices
+    
+    def step_contact_targets(self):
+        cycle_time = self.env.cycle_time
+        standing_mask = ~self.get_walking_cmd_mask()
+        self.env.gait_indices = torch.remainder(self.env.gait_indices + self.dt / cycle_time, 1.0)
+        if standing_mask:
+            self.env.gait_indices[:] = 0
+
+    ##############################
+    # deploy target policy
+    ##############################
     def init_action_policy(self):
         print("Preparing action policy")
         faulthandler.enable()
@@ -523,10 +592,9 @@ class DeployNode():
         # self.env = G1()
 
         # load policy
-        self.policy = load_onnx_policy(self.motion_config["policy_path"])
+        self.policy = load_onnx_policy(self.motion_config["action_policy_path"])
         self.angles = self.env.default_dof_pos_np
     
-
     def compute_observations(self):
         """ Computes observations
         """
@@ -559,26 +627,38 @@ class DeployNode():
         # print("start main loop")
         self.lowlevel_state_cb(self.low_state)
 
-        if self.initing_policy and not self.start_policy:
+        if self.init_policy_flag and not self.start_policy:
+            self.step_contact_targets()
             self.pre_policy_observations()
 
-            obs_tensor = torch.from_numpy(self.init_obs).unsqueeze(0)
-            self.initing_action = self.initial_policy(obs_tensor).detach().numpy().squeeze()
-            target_dof_pos = self.env.default_dof_pos_np[:INIT_DOF] + self.initing_action * self.env.scale_actions
-            
+            init_actions = self.initial_policy(self.init_obs.detach().reshape(1, -1))
+            if torch.any(torch.isnan(init_actions)):
+                print("Emergency stop due to NaN")
+                # self.zero_torque_state()
+                self.move_to_default_pos()
+                raise SystemExit
+            self.init_prev_action = init_actions.clone().detach().cpu().numpy().squeeze(0)
+            init_whole_body_action = init_actions.clone().detach().cpu().numpy().squeeze(0)
+
+            init_actions_scaled = init_whole_body_action * self.env.scale_actions
+            p_limits_low = (-np.array(self.env.torque_limits)) + self.env.init_kds*self.joint_vel
+            p_limits_high = (np.array(self.env.torque_limits)) + self.env.init_kds*self.joint_vel
+            actions_low = (p_limits_low/self.env.init_kps) - self.env.default_pre_dof_pos_np + self.joint_pos
+            actions_high = (p_limits_high/self.env.init_kps) - self.env.default_pre_dof_pos_np + self.joint_pos
+            target_dof_pos = np.clip(init_actions_scaled, actions_low, actions_high) + self.env.default_pre_dof_pos_np
 
             for i in range(HW_DOF):
-                self.cmd_msg.motor_cmd[i].q = target_dof_pos[i] if i < INIT_DOF else self.env.default_dof_pos_np[i]
+                self.cmd_msg.motor_cmd[i].q = target_dof_pos[i]
                 self.cmd_msg.motor_cmd[i].qd = 0
                 self.cmd_msg.motor_cmd[i].tau = 0.0
-                self.cmd_msg.motor_cmd[i].kp = self.env.p_gains[i]  # 30
-                self.cmd_msg.motor_cmd[i].kd = (self.env.d_gains[i])  # 0.6
+                self.cmd_msg.motor_cmd[i].kp = self.env.init_kps[i]
+                self.cmd_msg.motor_cmd[i].kd = (self.env.init_kds[i])
 
             if not NO_MOTOR and not DEBUG:
                 self.send_cmd(self.cmd_msg)
                 time.sleep(self.dt)
                 
-        if self.initing_policy and self.start_policy:
+        if self.init_policy_flag and self.start_policy:
             if DEBUG and SIM:
                 self.lowlevel_state_mujoco()
 
@@ -589,10 +669,8 @@ class DeployNode():
             raw_actions = self.policy(obs_tensor) #self.policy(self.env.obs_tensor.detach().reshape(1, -1))
             if torch.any(torch.isnan(raw_actions)):
                 print("Emergency stop due to NaN")
-                self.zero_torque_state()
+                # self.zero_torque_state()
                 self.move_to_default_pos()
-                # self.set_gains(np.array([0.0]*HW_DOF),self.env.d_gains)
-                # self.set_motor_position(q=self.env.default_dof_pos_np)
                 raise SystemExit
             self.prev_action = raw_actions.clone().detach().cpu().numpy().squeeze(0)
             whole_body_action = raw_actions.clone().detach().cpu().numpy().squeeze(0)
@@ -611,16 +689,13 @@ class DeployNode():
             if LOG_DATA:
                 self.action_hist.append(self.prev_action)
 
-            # set cmd details
-            #self.set_motor_position(self.angles)
-
             for i in range(HW_DOF):
                 self.cmd_msg.motor_cmd[i].q = self.angles[i]
                 self.cmd_msg.motor_cmd[i].qd = 0
                 # self.cmd_msg.motor_cmd[i].dq = 0.0
                 self.cmd_msg.motor_cmd[i].tau = 0.0
-                self.cmd_msg.motor_cmd[i].kp = self.env.p_gains[i]  # 30
-                self.cmd_msg.motor_cmd[i].kd = (self.env.d_gains[i])  # 0.6
+                self.cmd_msg.motor_cmd[i].kp = self.env.p_gains[i]
+                self.cmd_msg.motor_cmd[i].kd = (self.env.d_gains[i])
             # self.cmd_msg.motor_cmd = self.motor_cmd.copy()
         
             if not NO_MOTOR and not DEBUG:
