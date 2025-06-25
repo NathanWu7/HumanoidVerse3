@@ -1,7 +1,15 @@
+[![IsaacSim](https://img.shields.io/badge/IsaacSim-4.5.0-silver.svg)](https://docs.omniverse.nvidia.com/isaacsim/latest/overview.html)
+[![IsaacLab](https://img.shields.io/badge/IsaacLab-2.0.2-silver)](https://isaac-sim.github.io/IsaacLab/)
+[![Genesis](https://img.shields.io/badge/Genesis-blue.svg)](https://github.com/Genesis-Embodied-AI/Genesis)
+
 # HumanoidVerse3 
 Developed based on [HumanoidVerse ](README_V1.md) and [HumanoidVerse2](README_V2.md) please refer to [HumanoidVerse ](README_HumanoidVerse.md) and for environment settings and initial operation.  
 
 Aiming to handle issues of different versions and dependencies, debug and integrate the sim2real part, and finally add some Motion conversion methods and data.
+
+<p align="center">
+  <img width="400" src="pics/framework.png">
+</p>
 
 [HumanoidVerse3 中文 ](README_V3_zh.md)
 

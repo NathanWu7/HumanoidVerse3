@@ -38,7 +38,7 @@ project_name=ASAP \
 experiment_name=MotionTracking \
 robot.motion.motion_file=data/motions/PBHC/motion_data/Bruce_Lee_pose.pkl 
 ```
-TODO motion_convert_tools
+Please refer to documents in tools folder to use motion_convert_tools.
 
 ## G1 Examples
 ```bash

@@ -4,6 +4,7 @@ policy_path: "humanoid_sim2real/models/horse_stance_punch_model_33000.onnx"
 num_init_acions: 12
 init_num_obs: 47
 init_policy_path: "humanoid_sim2real/models/motion.pt"
+# logs/Locomotion/isaacsim45/dateandtime/model_50000.pt
 
 # Total simulation time
 simulation_duration: 60.0
