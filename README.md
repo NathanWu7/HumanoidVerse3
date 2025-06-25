@@ -13,6 +13,25 @@ Aiming to handle issues of different versions and dependencies, debug and integr
 
 [HumanoidVerse3 中文 ](README_V3_zh.md)
 
+# Pre begining
+Different simulation environments and even real robot environments are isolated from each other, which means you can test the model using only one simulation environment or directly on the real robot. When using it, you need to manage it with a virtual environment management tool (such as Conda). Before switching the simulator, you need to activate the corresponding simulation environment.
+
+For each virtual env, please refresh the index:
+```bash
+conda activate each_of_your_env
+
+pip install -e .
+```
+
+For other training commands
+```bash
+conda activate yourenv
+
+other commands
+
+conda activate/deactivate
+```
+
 # Training
 Please refer to the training instruction document.
 
