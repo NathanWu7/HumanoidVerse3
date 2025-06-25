@@ -1,6 +1,6 @@
 from humanoidverse.envs.base_task.term import base
 import torch
-from isaac_utils.rotations import (
+from tools.isaac_utils.rotations import (
     my_quat_rotate,
     quat_mul,
 )

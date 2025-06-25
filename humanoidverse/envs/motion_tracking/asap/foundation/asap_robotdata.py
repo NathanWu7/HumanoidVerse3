@@ -106,7 +106,7 @@ class AsapRobotData(robotdata.BaseRobotDataManager):
             if self.config.simulator.config.name == 'isaacgym':
                 self.task.simulator.robot_root_states[env_ids, 3:7] = motion_ref['root_rot'][env_ids]
             elif self.config.simulator.config.name == 'isaacsim' or self.config.simulator.config.name == 'isaacsim45':
-                from isaac_utils.rotations import xyzw_to_wxyz
+                from tools.isaac_utils.rotations import xyzw_to_wxyz
                 self.task.simulator.robot_root_states[env_ids, 3:7] = xyzw_to_wxyz(motion_ref['root_rot'][env_ids])
             elif self.config.simulator.config.name == 'genesis':
                 self.task.simulator.robot_root_states[env_ids, 3:7] = motion_ref['root_rot'][env_ids]
@@ -115,7 +115,7 @@ class AsapRobotData(robotdata.BaseRobotDataManager):
             self.task.simulator.robot_root_states[env_ids, 10:13] = motion_ref['root_ang_vel'][env_ids]
 
         else:
-            from isaac_utils.rotations import quat_mul, xyzw_to_wxyz
+            from tools.isaac_utils.rotations import quat_mul, xyzw_to_wxyz
 
             if self.task.is_evaluating:
                 root_pos_noise = 0

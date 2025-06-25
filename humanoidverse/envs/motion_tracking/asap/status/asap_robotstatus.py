@@ -1,7 +1,7 @@
 import torch
 from humanoidverse.envs.base_task.term.status import robotstatus
 from humanoidverse.envs.motion_tracking.asap.status import asap_robotstatus_extend
-from isaac_utils.rotations import (
+from tools.isaac_utils.rotations import (
     my_quat_rotate,
     calc_heading_quat_inv,
     calc_heading_quat,

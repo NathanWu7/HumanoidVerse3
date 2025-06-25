@@ -35,7 +35,7 @@ from humanoid_sim2real.common.remote_controller import RemoteController, KeyMap
 
 # from gamepad import Gamepad, parse_remote_data
 
-from motion_lib.motion_lib_robot import MotionLibRobot
+from tools.motion_lib.motion_lib_robot import MotionLibRobot
 from omegaconf import OmegaConf
 import sys
 import onnxruntime

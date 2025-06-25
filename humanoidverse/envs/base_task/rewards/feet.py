@@ -2,7 +2,7 @@ import torch
 from humanoidverse.envs.base_task.term import base
 from humanoidverse.utils.torch_utils import quat_rotate_inverse
 from humanoidverse.utils.torch_utils import quat_rotate_inverse, quat_apply
-from isaac_utils.rotations import wrap_to_pi
+from tools.isaac_utils.rotations import wrap_to_pi
 
 class FeetRewards(base.BaseManager):
     def __init__(self, _task):

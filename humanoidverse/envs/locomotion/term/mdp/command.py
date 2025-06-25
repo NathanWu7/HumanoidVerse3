@@ -1,6 +1,6 @@
 from humanoidverse.envs.base_task.term import base
 from humanoidverse.utils.torch_utils import quat_apply, to_torch, torch_rand_float
-from isaac_utils.rotations import wrap_to_pi
+from tools.isaac_utils.rotations import wrap_to_pi
 import torch
 
 class VelocityCommand(base.BaseManager):

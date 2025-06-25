@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 from humanoidverse.envs.env_utils.general import class_to_dict
-from isaac_utils.maths import torch_rand_float
+from tools.isaac_utils.maths import torch_rand_float
 
 class CommandGenerator:
     def __init__(self, config, device, num_envs):

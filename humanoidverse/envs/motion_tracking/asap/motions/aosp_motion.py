@@ -1,6 +1,6 @@
 from humanoidverse.envs.base_task.term import base
 import torch
-from motion_lib import motion_lib_robot
+from tools.motion_lib import motion_lib_robot
 from loguru import logger
 import numpy as np
 
@@ -19,7 +19,7 @@ class AsapMotion(base.BaseManager):
 
         ## motion
         self.config.robot.motion.step_dt = self.task.dt
-        self.motion_lib = motion_lib_robot.MotionLibRobot(self.task)
+        self.motion_lib = motion_lib_robot.MotionLibRobot(self.config.robot["motion"], self.num_envs, self.device)
         self.motion_lib.load_motions(random_sample=False)
         self.motion_len[:] = self.motion_lib.get_motion_length(self.motion_ids)
 
