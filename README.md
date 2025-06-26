@@ -80,16 +80,6 @@ Thanks to the following authors
   journal={arXiv preprint arXiv:2506.12851},
   year={2025}
 }
-
-@misc{Humanoid_robot_deployment,
-  author = {Yixiao Feng, Yuetong Fang},
-  title = {Humanoid_robot_deployment},
-  year = {2025},
-  publisher = {GitHub},
-  journal = {GitHub repository},
-  howpublished = {\url{https://github.com/YixFeng/Humanoid_robot_deployment}},
-}
-
 ```
 # Citation
 For HumanoidVerse3:
