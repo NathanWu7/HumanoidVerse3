@@ -119,8 +119,6 @@ class G1():
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.task = task
 
-        self.counter = 0
-
         self.configs = OmegaConf.load("humanoid_sim2real/configs/g1_ref_kungfu.yaml")
 
         # settings for action policy
@@ -208,7 +206,19 @@ class DeployNode():
 
     def __init__(self):
         super().__init__()  # type: ignore
+        # init remote controller
         self.remote_controller = RemoteController() 
+        # commands
+        self.lin_vel_deadband = 0.1
+        self.ang_vel_deadband = 0.1
+        self.move_by_wireless_remote = USE_WIRELESS_REMOTE
+        self.cmd_px_range = [0.1, 2.5]
+        self.cmd_nx_range = [0.1, 2]
+        self.cmd_py_range = [0.1, 0.5]
+        self.cmd_ny_range = [0.1, 0.5]
+        self.cmd_pyaw_range = [0.2, 1.0]
+        self.cmd_nyaw_range = [0.2, 1.0]
+
         self.cmd_msg = unitree_hg_msg_dds__LowCmd_()
         self.low_state = unitree_hg_msg_dds__LowState_() 
         self.mode_pr_ = MotorMode.PR
@@ -225,8 +235,6 @@ class DeployNode():
 
         self.motor_pub_freq = 50
         self.dt = 1/self.motor_pub_freq
-
-        self.counter = 0
 
         self.wait_for_low_state()
         init_cmd_hg(self.cmd_msg, self.mode_machine_, self.mode_pr_)
@@ -289,22 +297,6 @@ class DeployNode():
             # for i, p in enumerate([self.ref_left_wrist_pos, self.ref_right_wrist_pos, self.ref_head_pos]):
             #     self.env.viewer.user_scn.geoms[i].pos = p
 
-        # standing up
-        print("Standing up")
-        self.stand_up = False
-        self.stand_up = True
-
-        # commands
-        self.lin_vel_deadband = 0.1
-        self.ang_vel_deadband = 0.1
-        self.move_by_wireless_remote = USE_WIRELESS_REMOTE
-        self.cmd_px_range = [0.1, 2.5]
-        self.cmd_nx_range = [0.1, 2]
-        self.cmd_py_range = [0.1, 0.5]
-        self.cmd_ny_range = [0.1, 0.5]
-        self.cmd_pyaw_range = [0.2, 1.0]
-        self.cmd_nyaw_range = [0.2, 1.0]
-
         # start
         self.start_time = time.monotonic()
         print("Press \"start\" to start policy")
@@ -358,28 +350,28 @@ class DeployNode():
                 vx = vx * (self.cmd_nx_range[1] - self.cmd_nx_range[0]) - self.cmd_nx_range[0]
             else:
                 vx = 0
-            # left-x for turning left/right
+            # left-x for side moving left/right
             lx = -msg.lx
-            if lx > self.ang_vel_deadband:
-                yaw = (lx - self.ang_vel_deadband) / (1 - self.ang_vel_deadband)
-                yaw = yaw * (self.cmd_pyaw_range[1] - self.cmd_pyaw_range[0]) + self.cmd_pyaw_range[0]
-            elif lx < -self.ang_vel_deadband:
-                yaw = (lx + self.ang_vel_deadband) / (1 - self.ang_vel_deadband)
-                yaw = yaw * (self.cmd_nyaw_range[1] - self.cmd_nyaw_range[0]) - self.cmd_nyaw_range[0]
-            else:
-                yaw = 0
-            # right-x for side moving left/right
-            rx = -msg.rx
-            if rx > self.lin_vel_deadband:
-                vy = (rx - self.lin_vel_deadband) / (1 - self.lin_vel_deadband)
+            if lx > self.lin_vel_deadband:
+                vy = (lx - self.lin_vel_deadband) / (1 - self.lin_vel_deadband)
                 vy = vy * (self.cmd_py_range[1] - self.cmd_py_range[0]) + self.cmd_py_range[0]
-            elif rx < -self.lin_vel_deadband:
-                vy = (rx + self.lin_vel_deadband) / (1 - self.lin_vel_deadband)
+            elif lx < -self.lin_vel_deadband:
+                vy = (lx + self.lin_vel_deadband) / (1 - self.lin_vel_deadband)
                 vy = vy * (self.cmd_ny_range[1] - self.cmd_ny_range[0]) - self.cmd_ny_range[0]
             else:
                 vy = 0
+            # right-x for turning left/right
+            rx = -msg.rx
+            if rx > self.ang_vel_deadband:
+                yaw = (rx - self.ang_vel_deadband) / (1 - self.ang_vel_deadband)
+                yaw = yaw * (self.cmd_pyaw_range[1] - self.cmd_pyaw_range[0]) + self.cmd_pyaw_range[0]
+            elif rx < -self.ang_vel_deadband:
+                yaw = (rx + self.ang_vel_deadband) / (1 - self.ang_vel_deadband)
+                yaw = yaw * (self.cmd_nyaw_range[1] - self.cmd_nyaw_range[0]) - self.cmd_nyaw_range[0]
+            else:
+                yaw = 0
             self.xyyaw_command = np.array([vx, vy, yaw], dtype= np.float32)
-            print(self.xyyaw_command) # TODO: remove
+            # print(self.xyyaw_command) # TODO: remove
 
     def send_cmd(self, cmd: LowCmd):
         cmd.crc = CRC().Crc(cmd)
@@ -505,9 +497,11 @@ class DeployNode():
         # motor data
         self.joint_tau = [msg.motor_state[i].tau_est for i in range(HW_DOF)]
         self.joint_pos = [msg.motor_state[i].q for i in range(HW_DOF)]
+        self.pre_obs_joint_pos = (np.array(self.joint_pos) - self.env.default_pre_dof_pos_np) * self.env.scale_dof_pos
         self.obs_joint_pos = (np.array(self.joint_pos) - self.env.default_dof_pos_np) * self.env.scale_dof_pos
         self.joint_vel = [msg.motor_state[i].dq for i in range(HW_DOF)]
         self.obs_joint_vel = np.array(self.joint_vel) * self.env.scale_dof_vel
+        self.pre_obs_joint_vel = self.obs_joint_vel.copy()
 
         # Joint limit check
         if self.start_policy and (((np.array(self.joint_pos)-np.array(self.env.joint_limit_lo))<0).sum() >0 or ((np.array(self.joint_pos)-np.array(self.env.joint_limit_hi))>0).sum() > 0):
@@ -547,9 +541,9 @@ class DeployNode():
                             # self.obs_joint_pos[15:29], # dim 14
                             # self.obs_joint_vel[:12], # dim 12
                             # self.obs_joint_vel[15:29], # dim 12
-                            self.obs_joint_pos[:29], # dim 29
-                            self.obs_joint_vel[:29], # dim 29
-                            self.prepolicy_prev_action, # dim 29
+                            self.pre_obs_joint_pos[:29], # dim 29
+                            self.pre_obs_joint_vel[:29], # dim 29
+                            self.init_prev_action, # dim 29
                             self.obs_ang_vel,  # dim 3
                             self.obs_imu,  # 3
                             np.zeros(6), # dim 6
@@ -634,7 +628,7 @@ class DeployNode():
             init_actions = self.initial_policy(self.init_obs.detach().reshape(1, -1))
             if torch.any(torch.isnan(init_actions)):
                 print("Emergency stop due to NaN")
-                # self.zero_torque_state()
+                self.zero_torque_state()
                 self.move_to_default_pos()
                 raise SystemExit
             self.init_prev_action = init_actions.clone().detach().cpu().numpy().squeeze(0)
@@ -669,7 +663,7 @@ class DeployNode():
             raw_actions = self.policy(obs_tensor) #self.policy(self.env.obs_tensor.detach().reshape(1, -1))
             if torch.any(torch.isnan(raw_actions)):
                 print("Emergency stop due to NaN")
-                # self.zero_torque_state()
+                self.zero_torque_state()
                 self.move_to_default_pos()
                 raise SystemExit
             self.prev_action = raw_actions.clone().detach().cpu().numpy().squeeze(0)
