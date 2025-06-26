@@ -36,8 +36,8 @@ default_pre_dof_pos: [
                 -0.2, 0.0, 0.0, 0.4, -0.2, 0.0,
                 -0.2, 0.0, 0.0, 0.4, -0.2, 0.0,
                 0.0, 0.0, 0.0,
-                0.0, 0.4, 0.0, 0.0, 0.0, 0.0, 0.0,
-                0.0, -0.4, 0.0, 0.0, 0.0, 0.0, 0.0]
+                0.0, 0.4, 0.0, 0.4, 0.0, 0.0, 0.0,
+                0.0, -0.4, 0.0, 0.4, 0.0, 0.0, 0.0]
 # 运动动作的关节位置
 default_dof_pos: [
                 -0.1, 0.0, 0.0, 0.3, -0.2, 0.0, 
@@ -64,7 +64,7 @@ dof_effort_limit_list: [88.0, 88.0, 88.0, 139.0, 50.0, 50.0,
 
 
 motion:
-  motion_file : 'data/motions/PBHC/Horse-stance_punch.pkl'
+  motion_file : 'data/motions/PBHC/motion_data/Horse-stance_punch.pkl'
   asset:
     assetRoot: "data/robots/g1"
     # assetFileName: "g1_29dof_anneal_23dof.xml"

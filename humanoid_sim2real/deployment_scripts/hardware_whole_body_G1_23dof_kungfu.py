@@ -212,10 +212,12 @@ class DeployNode():
         self.lin_vel_deadband = 0.1
         self.ang_vel_deadband = 0.1
         self.move_by_wireless_remote = USE_WIRELESS_REMOTE
-        self.cmd_px_range = [0.1, 2.5]
-        self.cmd_nx_range = [0.1, 2]
-        self.cmd_py_range = [0.1, 0.5]
-        self.cmd_ny_range = [0.1, 0.5]
+        # self.cmd_px_range = [0.1, 2.5]
+        # self.cmd_nx_range = [0.1, 2]
+        self.cmd_px_range = [0.1, 0.8]
+        self.cmd_nx_range = [0.1, 0.4]
+        self.cmd_py_range = [0.1, 0.4]
+        self.cmd_ny_range = [0.1, 0.4]
         self.cmd_pyaw_range = [0.2, 1.0]
         self.cmd_nyaw_range = [0.2, 1.0]
 
@@ -256,6 +258,7 @@ class DeployNode():
         self.init_prev_action = np.zeros(self.motion_config.init_num_actions)
         self.start_policy = False
         self.init_policy_flag = False
+        self.finalized = False
 
         # for init policy
         self.init_obs = torch.zeros(1, self.motion_config.init_num_obs * self.motion_config.init_obs_context_len, dtype=torch.float, device=self.device, requires_grad=False)
@@ -326,9 +329,6 @@ class DeployNode():
         self.phase = torch.zeros(1, device=self.device, dtype=torch.float)
 
         self.Emergency_stop = False
-        self.stop = False
-
-        #self.gamepad = Gamepad()
         
         time.sleep(1)
 
@@ -411,7 +411,7 @@ class DeployNode():
             self.send_cmd(self.cmd_msg)
             time.sleep(self.dt)
 
-    def move_to_default_pos(self):
+    def move_to_default_pos(self, target_dof_pos):
         print("Moving to default pos.")
         # moving time 3s
         total_time = 3
@@ -429,7 +429,7 @@ class DeployNode():
             alpha = i / num_step
             for j in range(HW_DOF):
                 motor_idx = j
-                target_pos = self.env.default_pre_dof_pos_np[j]
+                target_pos = target_dof_pos[j]
                 self.cmd_msg.motor_cmd[motor_idx].q = init_dof_pos[j] * (1 - alpha) + target_pos * alpha
                 self.cmd_msg.motor_cmd[motor_idx].qd = 0
                 self.cmd_msg.motor_cmd[motor_idx].kp = self.env.init_kps[j]
@@ -438,9 +438,10 @@ class DeployNode():
             self.send_cmd(self.cmd_msg)
             time.sleep(self.dt)
 
-    def default_pos_state(self):
+    def default_pos_state(self, target_dof_pos):
         print("Enter default pos state.")
         print("Waiting for the Button B signal for initing...")
+        print("You can also press the select button to exit.")
         while self.remote_controller.button[KeyMap.B] != 1:
             if dp_node.remote_controller.button[KeyMap.select] == 1:
                 self.zero_torque_state()
@@ -448,7 +449,7 @@ class DeployNode():
                 exit()
             for j in range(HW_DOF):
                 motor_idx = j
-                self.cmd_msg.motor_cmd[motor_idx].q = self.env.default_pre_dof_pos_np[j]
+                self.cmd_msg.motor_cmd[motor_idx].q = target_dof_pos[j]
                 self.cmd_msg.motor_cmd[motor_idx].qd = 0
                 self.cmd_msg.motor_cmd[motor_idx].kp = self.env.init_kps[j]
                 self.cmd_msg.motor_cmd[motor_idx].kd = self.env.init_kds[j]
@@ -471,7 +472,7 @@ class DeployNode():
 
         if self.remote_controller.button[KeyMap.select]: #if select is pressed
             print("Program exiting")
-            self.stop = True
+            self.Emergency_stop = True
 
         # imu data
         imu_data = msg.imu_state
@@ -492,7 +493,8 @@ class DeployNode():
         r_threshold = abs(self.roll) > 0.6
         p_threshold = abs(self.pitch) > 0.6
         if r_threshold or p_threshold:
-            self.get_logger().warning("Roll or pitch threshold reached")
+            print("Roll or pitch threshold reached")
+            self.Emergency_stop = True
 
         # motor data
         self.joint_tau = [msg.motor_state[i].tau_est for i in range(HW_DOF)]
@@ -537,10 +539,6 @@ class DeployNode():
         obs_buf = torch.tensor(np.concatenate((sin_pos.clone().detach().cpu().numpy(), # 1
                             cos_pos.clone().detach().cpu().numpy(), # 1
                             self.xyyaw_command * self.commands_scale, # dim 3
-                            # self.obs_joint_pos[:12], # dim 12
-                            # self.obs_joint_pos[15:29], # dim 14
-                            # self.obs_joint_vel[:12], # dim 12
-                            # self.obs_joint_vel[15:29], # dim 12
                             self.pre_obs_joint_pos[:29], # dim 29
                             self.pre_obs_joint_vel[:29], # dim 29
                             self.init_prev_action, # dim 29
@@ -629,7 +627,7 @@ class DeployNode():
             if torch.any(torch.isnan(init_actions)):
                 print("Emergency stop due to NaN")
                 self.zero_torque_state()
-                self.move_to_default_pos()
+                self.move_to_default_pos(self.env.default_pre_dof_pos_np)
                 raise SystemExit
             self.init_prev_action = init_actions.clone().detach().cpu().numpy().squeeze(0)
             init_whole_body_action = init_actions.clone().detach().cpu().numpy().squeeze(0)
@@ -664,7 +662,7 @@ class DeployNode():
             if torch.any(torch.isnan(raw_actions)):
                 print("Emergency stop due to NaN")
                 self.zero_torque_state()
-                self.move_to_default_pos()
+                self.move_to_default_pos(self.env.default_dof_pos_np)
                 raise SystemExit
             self.prev_action = raw_actions.clone().detach().cpu().numpy().squeeze(0)
             whole_body_action = raw_actions.clone().detach().cpu().numpy().squeeze(0)
@@ -722,7 +720,12 @@ class DeployNode():
                         mujoco.mj_step(self.env.mj_model, self.env.mj_data)
             current_time = self.episode_length_buf * self.dt + self.motion_start_times
             if current_time > self._ref_motion_length:
-                breakpoint()
+                print("\nKungfu execution finalized, turn to self-balance policy.")
+                self.init_policy_flag = True
+                self.start_policy = False
+                self.episode_length_buf = torch.zeros(1, device=self.device, dtype=torch.long)
+                # breakpoint()
+                # self.finalized = True
             
             bar_length = 50
             progress = current_time / self._ref_motion_length
@@ -733,10 +736,6 @@ class DeployNode():
             sys.stdout.write(f"\rProgress: [{bar}] {int(progress * 100)}%")
             sys.stdout.flush()
 
-        while 0.02-time.monotonic()+loop_start_time>0:  #0.012473  0.019963
-            pass
-            
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -746,24 +745,34 @@ if __name__ == "__main__":
 
     ChannelFactoryInitialize(0, args.net)
     
-    # rclpy.init(args=None)
     dp_node = DeployNode()
+
+    # init policy的准备动作
     dp_node.zero_torque_state()
     # Move to the default position
-    dp_node.move_to_default_pos()
+    dp_node.move_to_default_pos(dp_node.env.default_pre_dof_pos_np)
     # Enter the default position state, press the A key to continue executing
-    dp_node.default_pos_state()
+    dp_node.default_pos_state(dp_node.env.default_pre_dof_pos_np)
 
     print("Deploy node started")
     while True:
         try:
             dp_node.run()
             # Press the select key to exit
-            if dp_node.remote_controller.button[KeyMap.select] == 1:
+            if dp_node.remote_controller.button[KeyMap.select] == 1 or dp_node.Emergency_stop:
                 break
+            
+            # # 默认状态无自稳、为保护脚踝关节，pd设置小，站不住
+            # # 并非提前终止，而是动作已经执行完毕，可以回到默认状态
+            # if dp_node.finalized:
+            #     print("Finalized policy... Returning to default position.")
+            #     dp_node.move_to_default_pos(dp_node.env.default_dof_pos_np)
+            #     dp_node.default_pos_state(dp_node.env.default_dof_pos_np)
+            #     dp_node.finalized = False # 若需要再次执行动作，需要重置此标志位
         except KeyboardInterrupt:
             break
 
+    # 中断程序的保护措施
     create_damping_cmd(dp_node.cmd_msg)
     dp_node.send_cmd(dp_node.cmd_msg)
     print("Exit")
