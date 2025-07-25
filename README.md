@@ -85,7 +85,7 @@ Thanks to the following authors
 For HumanoidVerse3:
 ```bibtex
 @misc{HumanoidVerse3,
-  author = {Qiwei Wu},
+  author = {Qiwei Wu, Yixiao Feng},
   title = {HumanoidVerse3},
   year = {2025},
   publisher = {GitHub},
