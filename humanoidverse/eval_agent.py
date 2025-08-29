@@ -2,10 +2,6 @@ import os
 import sys
 from pathlib import Path
 
-_root = Path(__file__).absolute().parent.parent
-print(_root.__str__())
-sys.path.append(_root.__str__())
-
 import hydra
 from hydra.utils import instantiate
 from hydra.core.hydra_config import HydraConfig
@@ -13,15 +9,14 @@ from hydra.core.config_store import ConfigStore
 from omegaconf import OmegaConf
 from humanoidverse.utils.logging import HydraLoggerBridge
 import logging
-from utils.config_utils import *  # noqa: E402, F403
+from humanoidverse.utils.config_utils import *  # noqa: E402, F403
 
 # add argparse arguments
-
-from humanoidverse.utils.config_utils import *  # noqa: E402, F403
+from humanoidverse.utils.devtool import pdb_decorator
 from loguru import logger
 
 import threading
-from pynput import keyboard
+# from pynput import keyboard
 
 def on_press(key, env):
     try:
@@ -47,13 +42,16 @@ def on_press(key, env):
         pass
 
 def listen_for_keypress(env):
+    return
     with keyboard.Listener(on_press=lambda key: on_press(key, env)) as listener:
         listener.join()
+
 
 
 # from humanoidverse.envs.base_task.base_task import BaseTask
 # from humanoidverse.envs.base_task.omnih2o_cfg import OmniH2OCfg
 @hydra.main(config_path="config", config_name="base_eval")
+# @pdb_decorator
 def main(override_config: OmegaConf):
     # logging to hydra log file
     hydra_log_path = os.path.join(HydraConfig.get().runtime.output_dir, "eval.log")
@@ -105,46 +103,28 @@ def main(override_config: OmegaConf):
             config = OmegaConf.merge(config, eval_overrides)
         else:
             config = override_config
-
-    simulator_type = config.simulator.config.name
-    if simulator_type == 'isaacsim45':
-        from isaaclab.app import AppLauncher
+            
+    simulator_type = config.simulator['_target_'].split('.')[-1]
+    if simulator_type == 'IsaacSim':
+        from omni.isaac.lab.app import AppLauncher
         import argparse
-        parser = argparse.ArgumentParser(description="Train an RL agent with RSL-RL.")
+        parser = argparse.ArgumentParser(description="Evaluate an RL agent with RSL-RL.")
         AppLauncher.add_app_launcher_args(parser)
-
+        
         args_cli, hydra_args = parser.parse_known_args()
         sys.argv = [sys.argv[0]] + hydra_args
         args_cli.num_envs = config.num_envs
         args_cli.seed = config.seed
-        args_cli.env_spacing = config.env.config.env_spacing # config.env_spacing
+        args_cli.env_spacing = config.env.config.env_spacing
         args_cli.output_dir = config.output_dir
         args_cli.headless = config.headless
 
+        
         app_launcher = AppLauncher(args_cli)
         simulation_app = app_launcher.app
-
-    if simulator_type == 'isaacsim':
-        from omni.isaac.lab.app import AppLauncher
-        import argparse
-        parser = argparse.ArgumentParser(description="Train an RL agent with RSL-RL.")
-        parser.add_argument("--num_envs", type=int, default=1, help="Number of environments to simulate.")
-        parser.add_argument("--seed", type=int, default=None, help="Seed used for the environment")
-        parser.add_argument("--env_spacing", type=int, default=20, help="Distance between environments in simulator.")
-        parser.add_argument("--output_dir", type=str, default="logs", help="Directory to store the training output.")
-        AppLauncher.add_app_launcher_args(parser)
-
-        # Parse known arguments to get argparse params
-        args_cli, hydra_args = parser.parse_known_args()
-
-        app_launcher = AppLauncher(args_cli)
-        simulation_app = app_launcher.app
-        print('args_cli', args_cli)
-        print('hydra_args', hydra_args)
-        sys.argv = [sys.argv[0]] + hydra_args
-    if simulator_type == 'isaacgym':
+    if simulator_type == 'IsaacGym':
         import isaacgym
-
+        
     from humanoidverse.agents.base_algo.base_algo import BaseAlgo  # noqa: E402
     from humanoidverse.utils.helpers import pre_process_config
     import torch
@@ -152,7 +132,11 @@ def main(override_config: OmegaConf):
 
     pre_process_config(config)
 
-    device = "cuda:0" if torch.cuda.is_available() else "cpu"
+    # use config.device if specified, otherwise use cuda if available
+    if config.get("device", None):
+        device = config.device
+    else:
+        device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
     eval_log_dir = Path(config.eval_log_dir)
     eval_log_dir.mkdir(parents=True, exist_ok=True)
@@ -161,20 +145,17 @@ def main(override_config: OmegaConf):
     with open(eval_log_dir / "config.yaml", "w") as file:
         OmegaConf.save(config, file)
 
+    # print(f"config.num_envs: {config.num_envs}"); breakpoint()
     ckpt_num = config.checkpoint.split('/')[-1].split('_')[-1].split('.')[0]
+    config.num_envs = 1
     config.env.config.save_rendering_dir = str(checkpoint.parent / "renderings" / f"ckpt_{ckpt_num}")
     config.env.config.ckpt_dir = str(checkpoint.parent) # commented out for now, might need it back to save motion
-
-    config.env._target_ = config.env._target_ + "Evaluater"
     env = instantiate(config.env, device=device)
 
     # Start a thread to listen for key press
     key_listener_thread = threading.Thread(target=listen_for_keypress, args=(env,))
     key_listener_thread.daemon = True
     key_listener_thread.start()
-
-    ## update with postfix
-    config.algo._target_ = config.algo._target_ + "Evaluater"
 
     algo: BaseAlgo = instantiate(config.algo, env=env, device=device, log_dir=None)
     algo.setup()
@@ -201,8 +182,6 @@ def main(override_config: OmegaConf):
     if EXPORT_ONNX:
         example_obs_dict = algo.get_example_obs()
         export_policy_as_onnx(algo.inference_model, exported_policy_path, exported_onnx_name, example_obs_dict)
-        # Jiawei: don't have a better way for conflicts now; need to comment out the following line for force control
-        # export_policy_and_estimator_as_onnx(algo.inference_model, exported_policy_path, exported_onnx_name, example_obs_dict)
         logger.info(f'Exported policy as onnx to: {os.path.join(exported_policy_path, exported_onnx_name)}')
 
     algo.evaluate_policy()

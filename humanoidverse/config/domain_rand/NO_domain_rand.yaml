@@ -9,19 +9,11 @@ domain_rand:
   push_interval_s : [5, 10]
   max_push_vel_xy : 1.0
 
-  randomize_friction : False
-  # randomize_friction : False
-  friction_range : [-0.6, 1.2]
-
-  randomize_base_mass : False # replaced by randomize_link_mass
-  added_mass_range : [-5., 10.]
-
-
   randomize_base_com : False
   base_com_range: #kg
       x : [-0.1, 0.1]
       y : [-0.1, 0.1]
-      z : [-0.1, 0.1]
+      z : [-0.01, 0.01]
 
   randomize_link_mass : False
   link_mass_range : [0.7, 1.3] # *factor
@@ -35,13 +27,21 @@ domain_rand:
   kd_range : [0.75, 1.25]
 
 
+
+  randomize_friction : False
+  # randomize_friction : False
+  friction_range : [-0.6, 1.2]
+
+  randomize_base_mass : False # replaced by randomize_link_mass
+  added_mass_range : [-5., 10.]  
+  
   randomize_torque_rfi : False
   rfi_lim : 0.1
   randomize_rfi_lim : False
   rfi_lim_range : [0.5, 1.5]
 
   randomize_ctrl_delay : False
-  ctrl_delay_step_range : [0, 3] # integer max real delay is 90ms
+  ctrl_delay_step_range : [0, 2] # integer max real delay is 90ms
 
   randomize_motion_ref_xyz: False # head only for now
   motion_ref_xyz_range : [[-0.02, 0.02],[-0.02, 0.02],[-0.1, 0.1]]

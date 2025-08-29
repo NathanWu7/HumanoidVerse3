@@ -11,6 +11,8 @@ license agreement from NVIDIA CORPORATION is strictly prohibited.
 import torch
 import numpy as np
 
+######################## Quaternion: XYZW #################################
+
 
 def to_torch(x, dtype=torch.float, device='cuda:0', requires_grad=False):
     return torch.tensor(x, dtype=dtype, device=device, requires_grad=requires_grad)
@@ -68,7 +70,7 @@ def quat_rotate(q, v):
     return a + b + c
 
 
-# @torch.jit.script
+@torch.jit.script
 def quat_rotate_inverse(q, v):
     shape = q.shape
     q_w = q[:, -1]
@@ -188,6 +190,24 @@ def quat_from_euler_xyz(roll, pitch, yaw):
 
     return torch.stack([qx, qy, qz, qw], dim=-1)
 
+
+@torch.jit.script
+def quat_from_euler_xyz_better(rpy:torch.Tensor):
+# def quat_from_euler_xyz(roll, pitch, yaw):
+    roll, pitch, yaw = torch.unbind(rpy, dim=-1)
+    cy = torch.cos(yaw * 0.5)
+    sy = torch.sin(yaw * 0.5)
+    cr = torch.cos(roll * 0.5)
+    sr = torch.sin(roll * 0.5)
+    cp = torch.cos(pitch * 0.5)
+    sp = torch.sin(pitch * 0.5)
+
+    qw = cy * cr * cp + sy * sr * sp
+    qx = cy * sr * cp - sy * cr * sp
+    qy = cy * cr * sp + sy * sr * cp
+    qz = sy * cr * cp - cy * sr * sp
+
+    return torch.stack([qx, qy, qz, qw], dim=-1)
 
 @torch.jit.script
 def torch_rand_float(lower, upper, shape, device):

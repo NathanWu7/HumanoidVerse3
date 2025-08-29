@@ -34,6 +34,7 @@ import numpy as np
 from humanoidverse.utils.torch_utils import quat_apply, normalize
 from typing import Tuple
 
+# xyzw
 # @ torch.jit.script
 def quat_apply_yaw(quat, vec):
     quat_yaw = quat.clone().view(-1, 4)

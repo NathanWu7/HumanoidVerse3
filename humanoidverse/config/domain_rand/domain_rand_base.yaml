@@ -9,13 +9,14 @@ domain_rand:
   # base com
   randomize_base_com : True
   base_com_range:
-    x : [-0.1, 0.1]
-    y : [-0.1, 0.1]
+    x : [-0.1., 0.1.]
+    y : [-0.1., 0.1.]
     z : [-0.1, 0.1]
 
   # link mass
   randomize_link_mass : True
   link_mass_range : [0.8, 1.2]
+
 
   # pd gain
   randomize_pd_gain : True

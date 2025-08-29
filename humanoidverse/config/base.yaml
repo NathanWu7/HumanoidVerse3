@@ -22,7 +22,7 @@ experiment_name: TEST
 
 base_dir: logs
 timestamp: ${now:%Y%m%d_%H%M%S}
-experiment_dir: ${base_dir}/${project_name}/${simulator.config.name}/${timestamp}-${experiment_name}-${log_task_name}-${robot.asset.robot_type}
+experiment_dir: ${base_dir}/${project_name}/${timestamp}-${experiment_name}-${log_task_name}-${robot.asset.robot_type}
 save_dir: ${experiment_dir}/.hydra
 
 force_flat_terrain: False

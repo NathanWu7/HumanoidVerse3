@@ -21,7 +21,7 @@ def compute_returns(self, rewards, values, dones, last_values, gamma, lam):
         
 class RolloutStorage(nn.Module):
 
-    def __init__(self, num_envs, num_transitions_per_env, device='cpu'):
+    def __init__(self, num_envs, num_transitions_per_env, device='cuda'):
         
         super().__init__()
 
@@ -96,19 +96,57 @@ class RolloutStorage(nn.Module):
         assert hasattr(self, key), key
         return getattr(self, key)
 
+    # def mini_batch_generator(self, num_mini_batches, num_epochs=8):
+    #     batch_size = self.num_envs * self.num_transitions_per_env
+    #     mini_batch_size = batch_size // num_mini_batches
+    #     indices = torch.randperm(num_mini_batches*mini_batch_size, requires_grad=False, device=self.device)
+        
+    #     _buffer_dict = {key: getattr(self, key)[:].flatten(0, 1) for key in self.stored_keys}
+
+    #     for epoch in range(num_epochs):
+    #         for i in range(num_mini_batches):
+
+    #             start = i*mini_batch_size
+    #             end = (i+1)*mini_batch_size
+    #             batch_idx = indices[start:end]
+
+    #             _batch_buffer_dict = {key: _buffer_dict[key][batch_idx] for key in self.stored_keys}
+    #             yield _batch_buffer_dict
+
     def mini_batch_generator(self, num_mini_batches, num_epochs=8):
         batch_size = self.num_envs * self.num_transitions_per_env
         mini_batch_size = batch_size // num_mini_batches
-        indices = torch.randperm(num_mini_batches*mini_batch_size, requires_grad=False, device=self.device)
+
+#         # 确保数据内存连续并预加载到GPU
+#         _buffer_dict = {
+#             key: getattr(self, key)[:].flatten(0, 1).contiguous() 
+#             for key in self.stored_keys
+#         }
+#         # 在CPU生成随机索引后传输到GPU（更高效）
+#         indices = torch.randperm(batch_size,device=self.device)
+# 
+#         # 每个epoch整体打乱数据
+#         shuffled_data = {
+#             key: _buffer_dict[key][indices] 
+#             for key in self.stored_keys
+#         }
+
+        indices = torch.randperm(batch_size,device=self.device)
         
-        _buffer_dict = {key: getattr(self, key)[:].flatten(0, 1) for key in self.stored_keys}
-
+        
+        shuffled_data = {
+            key: getattr(self, key)[:].flatten(0, 1)[indices].contiguous()
+            for key in self.stored_keys
+        }
+        
         for epoch in range(num_epochs):
+            
+            # 按顺序生成连续的小批量
             for i in range(num_mini_batches):
-
-                start = i*mini_batch_size
-                end = (i+1)*mini_batch_size
-                batch_idx = indices[start:end]
-
-                _batch_buffer_dict = {key: _buffer_dict[key][batch_idx] for key in self.stored_keys}
+                start = i * mini_batch_size
+                end = (i + 1) * mini_batch_size
+                _batch_buffer_dict = {
+                    key: shuffled_data[key][start:end] 
+                    for key in self.stored_keys
+                }
                 yield _batch_buffer_dict

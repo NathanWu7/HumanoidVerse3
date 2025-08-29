@@ -67,7 +67,6 @@ class IsaacLabCfg(DirectRLEnvCfg):
 
     # simulation
     sim: SimulationCfg = SimulationCfg(dt=dt, render_interval=substeps, physx=PhysxCfg(bounce_threshold_velocity=0.2))
-    # TODO(rhua): using flat terrain until RayCaster is fixed
     terrain = TerrainImporterCfg(
         prim_path="/World/ground",
         terrain_type="plane",
@@ -183,7 +182,6 @@ class IsaacLabCfg(DirectRLEnvCfg):
 
     feet_name = ".*_ankle_link"
     knee_name = ".*_knee_link"
-    # extend links (these ids are ids after reordered, ie. these id are from IsaacGym, TODO: change to new id directly)
     # h1
     extend_body_parent_ids = [15, 19, 0]
     extend_body_pos = torch.tensor([[0.3, 0, 0], [0.3, 0, 0], [0, 0, 0.75]])

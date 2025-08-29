@@ -33,6 +33,11 @@ def export_policy_as_onnx(inference_model, path, exported_policy_name, example_o
 
         wrapper = PPOWrapper(actor)
         example_input_list = example_obs_dict["actor_obs"]
+        
+        # actor.double()
+        # wrapper.double()
+        # example_input_list.double()
+        
         torch.onnx.export(
             wrapper,
             example_input_list,  # Pass x1 and x2 as separate inputs
@@ -40,7 +45,10 @@ def export_policy_as_onnx(inference_model, path, exported_policy_name, example_o
             verbose=True,
             input_names=["actor_obs"],  # Specify the input names
             output_names=["action"],       # Name the output
-            opset_version=13           # Specify the opset version, if needed
+            # opset_version=17          # Specify the opset version, if needed
+            export_params=True,
+            opset_version=13,
+            do_constant_folding=True,
         )
 
 def export_policy_and_estimator_as_onnx(inference_model, path, exported_policy_name, example_obs_dict):

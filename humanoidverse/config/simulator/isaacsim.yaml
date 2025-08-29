@@ -7,10 +7,6 @@ simulator:
   config:
     name: "isaacsim"
     terrain: ${terrain}
-    plane:
-        static_friction: 1.0
-        dynamic_friction: 1.0
-        restitution: 0.0
     sim:
       fps: 200
       control_decimation: 4

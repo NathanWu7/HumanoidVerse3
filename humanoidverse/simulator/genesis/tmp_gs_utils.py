@@ -138,15 +138,3 @@ def gs_quat_conjugate(a):
     shape = a.shape
     a = a.reshape(-1, 4)
     return torch.cat((a[:, :1], -a[:, 1:], ), dim=-1).view(shape)
-
-
-def draw_sphere(self, pos, radius, color, env_id, pos_id=0):
-    if not hasattr(self, "visualize_entities") or len(self.visualize_entities) == 0:
-        # 不做任何事，或者打印警告
-        # print("Warning: visualize_entities 未初始化，跳过 draw_sphere。")
-        return
-    if pos_id >= len(self.visualize_entities):
-        # 防止越界
-        # print(f"Warning: pos_id {pos_id} 超出 visualize_entities 范围，跳过 draw_sphere。")
-        return
-    self.visualize_entities[pos_id].set_pos(pos.reshape(1, 3))

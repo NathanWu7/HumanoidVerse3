@@ -3,6 +3,10 @@ from torch import Tensor
 from termcolor import colored
 from loguru import logger
 
+
+
+# @time_prot_cls_dec_
+# TimePortion: 1.57%
 class HistoryHandler:
     
     def __init__(self, num_envs, history_config, obs_dims, device):
