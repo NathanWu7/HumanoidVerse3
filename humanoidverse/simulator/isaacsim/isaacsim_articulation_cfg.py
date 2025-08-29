@@ -7,7 +7,7 @@ from omni.isaac.lab.utils.assets import ISAACLAB_NUCLEUS_DIR
 ARTICULATION_CFG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
         # usd_path=f"{ISAACLAB_NUCLEUS_DIR}/Robots/Unitree/H1/h1.usd",
-        usd_path="data/robots/h1/h1.usd",
+        usd_path="description/robots/h1/h1.usd",
         activate_contact_sensors=True,
         rigid_props=sim_utils.RigidBodyPropertiesCfg(
             disable_gravity=False,

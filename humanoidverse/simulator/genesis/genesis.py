@@ -16,13 +16,13 @@ import copy
 
 class Genesis(BaseSimulator):
     """
-    Base class for robotic simulation environments, providing a framework for simulation setup,
+    Base class for robotic simulation environments, providing a framework for simulation setup, 
     environment creation, and control over robotic assets and simulation properties.
     """
     def __init__(self, config, device):
         """
         Initializes the base simulator with configuration settings and simulation device.
-
+        
         Args:
             config (dict): Configuration dictionary for the simulation.
             device (str): Device type for simulation ('cpu' or 'cuda').
@@ -34,7 +34,6 @@ class Genesis(BaseSimulator):
         self.sim_device = device
         self.headless = False
         gs.init(backend=gs.gpu if 'cuda' in self.device else gs.cpu)
-        self.visualize_entities = []
 
     # ----- Configuration Setup Methods -----
 
@@ -49,7 +48,7 @@ class Genesis(BaseSimulator):
 
     def setup(self):
         """
-        Initializes the simulator parameters and environment. This method should be implemented
+        Initializes the simulator parameters and environment. This method should be implemented 
         by subclasses to set specific simulator configurations.
         """
 
@@ -86,7 +85,7 @@ class Genesis(BaseSimulator):
 
     def setup_terrain(self, mesh_type):
         """
-        Configures the terrain based on specified mesh type.
+        Configures the terrain based on specified mesh type. 
 
         Args:
             mesh_type (str): Type of terrain mesh ('plane', 'heightfield', 'trimesh').
@@ -139,7 +138,7 @@ class Genesis(BaseSimulator):
         self.genesis_link_names = [link.name for link in self.robot.links]
         self.humanoidverse_link_names = self.robot_cfg.body_names
         self.link_mapping_genesis_to_humanoidverse_idx = [self.genesis_link_names.index(name) for name in self.humanoidverse_link_names]
-
+        
         # names to indices
         self.dof_ids = [
             self.robot.get_joint(name).dof_idx_local
@@ -196,7 +195,7 @@ class Genesis(BaseSimulator):
     def get_dof_limits_properties(self):
         """
         Retrieves the DOF (degrees of freedom) limits and properties.
-
+        
         Returns:
             Tuple of tensors representing position limits, velocity limits, and torque limits for each DOF.
         """
@@ -315,7 +314,7 @@ class Genesis(BaseSimulator):
         """
         self.robot.control_dofs_force(torques, self.dof_ids)
 
-
+    
     def set_actor_root_state_tensor(self, set_env_ids, root_states):
         """
         Sets the root state tensor for specified actors within environments.
@@ -352,7 +351,7 @@ class Genesis(BaseSimulator):
         self.robot.set_dofs_velocity(
             base_ang_vel, dofs_idx_local=[3, 4, 5],  envs_idx=set_env_ids
         )
-
+    
     def set_dof_state_tensor(self, set_env_ids, dof_states):
         """
         Sets the DOF state tensor for specified actors within environments.
@@ -404,25 +403,20 @@ class Genesis(BaseSimulator):
     def dof_state(self):
         # This will always use the latest dof_pos and dof_vel
         return torch.cat([self.dof_pos[..., None], self.dof_vel[..., None]], dim=-1)
-
+    
     def add_visualize_entities(self, num_visualize_markers):
         # self.scene.add_entity(gs.morphs.Sphere())
         self.visualize_entities = []
         for i in range(num_visualize_markers):
             self.visualize_entities.append(self.scene.add_entity(gs.morphs.Sphere(radius=0.04, visualization=True, collision=False)))
-
+    
      # debug visualization
     def clear_lines(self):
         # self.scene.clear_debug_objects()
         pass
 
     def draw_sphere(self, pos, radius, color, env_id, pos_id=0):
-        if not hasattr(self, "visualize_entities") or len(self.visualize_entities) == 0:
-            # 没有可视化球体，直接跳过，不报错
-            return
-        if pos_id >= len(self.visualize_entities):
-            # 索引越界，也跳过
-            return
+        # self.scene.draw_debug_sphere(pos, radius, color)
         self.visualize_entities[pos_id].set_pos(pos.reshape(1, 3))
 
     def draw_line(self, start_point, end_point, color, env_id):

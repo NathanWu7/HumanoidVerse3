@@ -25,10 +25,13 @@ dependencies = [
     "meshcat",
     "pynput",
     "scipy",
-    "tensorboard",
+    "tensorboard==2.12.0",
     "onnx",
     "onnxruntime",
     "opencv-python",
+    "joblib",
     "easydict",
-    "lxml"
+    "lxml",
+    "numpy-stl",
+    "open3d"
 ]

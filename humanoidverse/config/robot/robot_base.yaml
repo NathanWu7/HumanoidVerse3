@@ -1,6 +1,7 @@
 # @package _global_
 
 robot:
+  only_track_leg: ???
   # Observation parameters
   dof_obs_size: ???
   number_of_actions: ???
@@ -25,7 +26,6 @@ robot:
   num_key_bodies: ${len:${robot.key_bodies}}
   mimic_small_marker_bodies: null
 
-  randomize_link_body_names: ???
 
   control:
     # Can be "isaac_pd" or "P"/"V"/"T" for Proportional, Velocity, Torque control
@@ -61,7 +61,7 @@ robot:
     usd_file: null
     xml_file: null
     asset_root: "data/robots"
-    self_collisions: True
+    self_collisions: 0
     filter_ints: null
 
 # motion_lib:

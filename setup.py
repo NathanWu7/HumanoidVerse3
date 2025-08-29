@@ -22,7 +22,7 @@ setup(
         "meshcat",
         "pynput",
         "scipy",
-        "tensorboard",
+        "tensorboard==2.12.0",
         "onnx",
         "onnxruntime",
         "opencv-python",

@@ -14,7 +14,8 @@ env:
     terrain: ${terrain}
     obs: ${obs}
     env_spacing: 5.0
-    max_episode_length_s: 20
+    max_episode_length_s: 100000
+    use_vec_reward: False
 
     normalization:
       clip_actions: 100.0

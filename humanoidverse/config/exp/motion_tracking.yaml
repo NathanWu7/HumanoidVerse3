@@ -1,0 +1,24 @@
+# @package _global_
+
+defaults:
+  - /algo: mh_ppo
+  - /env: motion_tracking
+  - /domain_rand: main
+  - /rewards: motion_tracking/main
+  - /robot: g1/g1_23dof_lock_wrist
+  - /terrain: terrain_locomotion_plane
+  - /obs: motion_tracking/main
+
+experiment_name: Motion_Tracking
+project_name: MotionTracking
+
+# Robot motion file override
+robot:
+  motion:
+    motion_file: data/motions/GVHMR/Khalil/smpl_cont_mask.pkl
+
+# Training parameters
+num_envs: 4096
+headless: true
+
+log_task_name: motion_tracking

@@ -1,0 +1,153 @@
+
+
+deploy:
+  deploy_mode: "multiple"
+
+robot:
+  motion:
+    motion_file: "example/motion_data"
+log_task_name: motion_tracking # just for compatibility, don't think about it
+
+
+obs:
+  obs_dict:
+    actor_obs:
+    - base_ang_vel
+    - projected_gravity
+    - dof_pos
+    - dof_vel
+    - actions
+    - ref_motion_phase
+    - history_actor
+    critic_obs:
+    - base_lin_vel
+    - base_ang_vel
+    - projected_gravity
+    - dof_pos
+    - dof_vel
+    - actions
+    - ref_motion_phase
+    - dif_local_rigid_body_pos
+    - local_ref_rigid_body_pos
+    - history_critic
+  obs_auxiliary:
+    history_actor:
+      base_ang_vel: 4
+      projected_gravity: 4
+      dof_pos: 4
+      dof_vel: 4
+      actions: 4
+      ref_motion_phase: 4
+      relyaw: 4
+    history_critic:
+      base_lin_vel: 4
+      base_ang_vel: 4
+      projected_gravity: 4
+      dof_pos: 4
+      dof_vel: 4
+      actions: 4
+      ref_motion_phase: 4
+      relyaw: 4
+    short_history:
+      base_ang_vel: 5
+      projected_gravity: 5
+      dof_pos: 5
+      dof_vel: 5
+      actions: 5
+      command_lin_vel: 5
+      command_ang_vel: 5
+  obs_scales:
+    base_lin_vel: 2.0
+    base_ang_vel: 0.25
+    projected_gravity: 1.0
+    command_lin_vel: 1.0
+    command_ang_vel: 1.0
+    dof_pos: 1.0
+    dof_vel: 0.05
+    base_ang_vel_noise: 0.25
+    projected_gravity_noise: 1.0
+    dof_pos_noise: 1.0
+    dof_vel_noise: 0.05
+    history: 1.0
+    short_history: 1.0
+    actions: 1.0
+    dif_joint_angles: 1.0
+    dif_joint_velocities: 1.0
+    # dif_joint_velocities: 0.05
+    local_ref_rigid_body_vel: 1.0
+    global_ref_rigid_body_vel: 1.0
+    dif_local_rigid_body_pos: 1.0
+    local_ref_rigid_body_pos: 1.0
+    local_ref_rigid_body_pos_relyaw: 1.0
+    relyaw: 1.0
+    ref_motion_phase: 1.0
+    history_actor: 1.0
+    history_critic: 1.0
+    dr_base_com: 1.0
+    dr_link_mass: 1.0
+    dr_kp: 1.0
+    dr_kd: 1.0
+    dr_friction: 1.0
+    dr_ctrl_delay: 1.0
+  noise_scales:
+    base_lin_vel: 0.0
+    base_ang_vel: 0.0
+    projected_gravity: 0.0
+    base_ang_vel_noise: 0.3
+    projected_gravity_noise: 0.2
+    dof_pos_noise: 0.01
+    dof_vel_noise: 1.0
+    command_lin_vel: 0.0
+    command_ang_vel: 0.0
+    dof_pos: 0.0
+    dof_vel: 0.0
+    actions: 0.0
+    dif_joint_angles: 0.0
+    dif_joint_velocities: 0.0
+    local_ref_rigid_body_vel: 0.0
+    global_ref_rigid_body_vel: 0.0
+    dif_local_rigid_body_pos: 0.0
+    local_ref_rigid_body_pos: 0.0
+    local_ref_rigid_body_pos_relyaw: 0.0
+    relyaw: 0.0
+    ref_motion_phase: 0.0
+    history_actor: 0.0
+    history_critic: 0.0
+    history: 0.0
+    short_history: 0.0
+    dr_base_com: 0.0
+    dr_link_mass: 0.0
+    dr_kp: 0.0
+    dr_kd: 0.0
+    dr_friction: 0.0
+    dr_ctrl_delay: 0.0
+  add_noise_currculum: false
+  obs_dims:
+  - base_lin_vel: 3
+  - base_ang_vel: 3
+  - projected_gravity: 3
+  - command_lin_vel: 2
+  - command_ang_vel: 1
+  - dof_pos: ${robot.dof_obs_size}
+  - dof_vel: ${robot.dof_obs_size}
+  - base_ang_vel_noise: 3
+  - projected_gravity_noise: 3
+  - dof_pos_noise: ${robot.dof_obs_size}
+  - dof_vel_noise: ${robot.dof_obs_size}
+  - actions: ${robot.dof_obs_size}
+  - dif_joint_angles: ${robot.dof_obs_size}
+  - dif_joint_velocities: ${robot.dof_obs_size}
+  - dif_local_rigid_body_pos: ${eval:'3 * ${robot.num_bodies} + 9'}
+  - local_ref_rigid_body_pos: ${eval:'3 * ${robot.num_bodies} + 9'}
+  - local_ref_rigid_body_vel: ${eval:'3 * ${robot.num_bodies} + 9'}
+  - global_ref_rigid_body_vel: ${eval:'3 * ${robot.num_bodies} + 9'}
+  - local_ref_rigid_body_pos_relyaw: ${eval:'3 * ${robot.num_bodies} + 9'}
+  - relyaw: 1
+  - ref_motion_phase: 1
+  - dr_base_com: 3
+  - dr_link_mass: 22
+  - dr_kp: ${robot.dof_obs_size}
+  - dr_kd: ${robot.dof_obs_size}
+  - dr_friction: 1
+  - dr_ctrl_delay: 1
+  post_compute_config: {}

@@ -16,3 +16,4 @@ obs:
   obs_dims: ???
   # Will store values after preprocessing, don't put anything here
   post_compute_config: {} 
+  motion_len: -1

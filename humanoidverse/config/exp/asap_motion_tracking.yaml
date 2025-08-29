@@ -1,7 +1,43 @@
 # @package _global_
 
 defaults:
-  - /algo: ppo
-  - /env: asap_motion_tracking
+  - /algo: mh_ppo
+  - /env: motion_tracking
+  - /domain_rand: main
+  - /rewards: motion_tracking/main
+  - /robot: g1/g1_23dof_lock_wrist
+  - /terrain: terrain_locomotion_plane
+  - /obs: motion_tracking/main
 
-experiment_name: TEST_Motion_Tracking
+# Simplified experiment configuration for ASAP Motion Tracking
+experiment_name: ASAP_MotionTracking
+project_name: ASAP
+
+# Environment overrides for better motion tracking performance
+env:
+  config:
+    resample_motion_when_training: false
+    termination:
+      terminate_when_motion_far: true
+    termination_curriculum:
+      terminate_when_motion_far_curriculum: true
+      terminate_when_motion_far_threshold_min: 0.3
+      terminate_when_motion_far_curriculum_degree: 0.000025
+
+# Reward overrides
+rewards:
+  reward_penalty_curriculum: true
+  reward_penalty_degree: 0.00001
+
+# Robot overrides
+robot:
+  asset:
+    self_collisions: 0
+  motion:
+    motion_file: data/motions/PBHC/motion_data/Bruce_Lee_pose.pkl
+
+# Training parameters
+num_envs: 4096
+headless: true
+
+log_task_name: asap_motion_tracking

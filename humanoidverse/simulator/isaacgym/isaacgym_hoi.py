@@ -107,7 +107,8 @@ class IsaacGym(BaseSimulator):
         plane_params.dynamic_friction = self.simulator_config.terrain.dynamic_friction
         plane_params.restitution = self.simulator_config.terrain.restitution
         self.gym.add_ground(self.sim, plane_params)
-        logger.info('Created plane terrain')
+        logger.info('Created plane terrain \t| static_friction: {:.2f} \t| dynamic_friction: {:.2f} \t| restitution: {:.2f}'.format(
+            plane_params.static_friction, plane_params.dynamic_friction, plane_params.restitution))
 
     def _create_heightfield(self):
         """ Adds a heightfield terrain to the simulation, sets parameters based on the cfg.
@@ -117,8 +118,8 @@ class IsaacGym(BaseSimulator):
         hf_params.row_scale = self.terrain.cfg.horizontal_scale
         hf_params.vertical_scale = self.terrain.cfg.vertical_scale
         hf_params.nbRows = self.terrain.tot_cols
-        hf_params.nbColumns = self.terrain.tot_rows
-        hf_params.transform.p.x = -self.terrain.cfg.border_size
+        hf_params.nbColumns = self.terrain.tot_rows 
+        hf_params.transform.p.x = -self.terrain.cfg.border_size 
         hf_params.transform.p.y = -self.terrain.cfg.border_size
         hf_params.transform.p.z = 0.0
         hf_params.static_friction = self.simulator_config.terrain.static_friction
@@ -136,13 +137,13 @@ class IsaacGym(BaseSimulator):
         tm_params.nb_vertices = self.terrain.vertices.shape[0]
         tm_params.nb_triangles = self.terrain.triangles.shape[0]
 
-        tm_params.transform.p.x = -self.terrain.cfg.border_size
+        tm_params.transform.p.x = -self.terrain.cfg.border_size 
         tm_params.transform.p.y = -self.terrain.cfg.border_size
         tm_params.transform.p.z = 0.0
         tm_params.static_friction = self.simulator_config.terrain.static_friction
         tm_params.dynamic_friction = self.simulator_config.terrain.dynamic_friction
         tm_params.restitution = self.simulator_config.terrain.restitution
-        self.gym.add_triangle_mesh(self.sim, self.terrain.vertices.flatten(order='C'), self.terrain.triangles.flatten(order='C'), tm_params)
+        self.gym.add_triangle_mesh(self.sim, self.terrain.vertices.flatten(order='C'), self.terrain.triangles.flatten(order='C'), tm_params)   
         self.height_samples = torch.tensor(self.terrain.heightsamples).view(self.terrain.tot_rows, self.terrain.tot_cols).to(self.device)
         logger.info('Created trimesh terrain')
 
@@ -175,14 +176,14 @@ class IsaacGym(BaseSimulator):
         self.cubeB_asset = self.gym.create_box(self.sim, *([self.cubeB_size] * 3), cubeB_opts)
         self.cubeB_color = gymapi.Vec3(1.0, 0.95, 0.7)
         # Load tote
-        asset_root = "data/totes"
-        urdf_file = "urdf/tote.urdf"
+        asset_root = "humanoidverse/data/totes" 
+        urdf_file = "urdf/tote.urdf"  
         asset_options = gymapi.AssetOptions()
         asset_options.default_dof_drive_mode = gymapi.DOF_MODE_POS
         self.tote_asset = self.gym.load_asset(self.sim, asset_root, urdf_file, asset_options)
         self.tote_pose = gymapi.Transform()
-        self.tote_pose.p = gymapi.Vec3(0.3, 0.0, 0.8)
-        self.tote_pose.r = gymapi.Quat(0, 0, 0, 1)
+        self.tote_pose.p = gymapi.Vec3(0.3, 0.0, 0.8)  
+        self.tote_pose.r = gymapi.Quat(0, 0, 0, 1) 
 
     def load_assets(self):
         # Create robot asset
@@ -193,7 +194,7 @@ class IsaacGym(BaseSimulator):
 
         # Create table and cube assets
         self.load_objects()
-
+        
         # assert if  aligns with config
         assert self.num_dof == len(self.robot_config.dof_names), "Number of DOFs must be equal to number of actions"
         assert self.num_bodies == len(self.robot_config.body_names), "Number of bodies must be equal to number of body names"
@@ -233,7 +234,7 @@ class IsaacGym(BaseSimulator):
 
         self.robot_asset = self.gym.load_asset(self.sim, gym_asset_root, gym_asset_file, asset_options)
         return self.robot_asset
-
+    
     def _setup_robot_props_when_env_created(self):
         self.num_dof = self.gym.get_asset_dof_count(self.robot_asset)
         self.num_bodies = self.gym.get_asset_rigid_body_count(self.robot_asset)
@@ -324,11 +325,11 @@ class IsaacGym(BaseSimulator):
 
         dof_props_asset = self.gym.get_asset_dof_properties(self.robot_asset)
 
-        robot_handle = self.gym.create_actor(env_ptr,
-                                             self.robot_asset,
-                                             start_pose,
-                                             self.env_config.robot.asset.robot_type,
-                                             env_id,
+        robot_handle = self.gym.create_actor(env_ptr, 
+                                             self.robot_asset, 
+                                             start_pose, 
+                                             self.env_config.robot.asset.robot_type, 
+                                             env_id, 
                                              self.env_config.robot.asset.self_collisions, 1)
         self._body_list = self.gym.get_actor_rigid_body_names(env_ptr, robot_handle)
         dof_props = self._process_dof_props(dof_props_asset, env_id)
@@ -401,7 +402,7 @@ class IsaacGym(BaseSimulator):
             self.dof_vel_limits = torch.zeros(self.num_dof, dtype=torch.float, device=self.device, requires_grad=False)
             self.torque_limits = torch.zeros(self.num_dof, dtype=torch.float, device=self.device, requires_grad=False)
             for i in range(len(props)):
-
+                
                 self.hard_dof_pos_limits[i, 0] = props["lower"][i].item()
                 self.hard_dof_pos_limits[i, 1] = props["upper"][i].item()
                 self.dof_pos_limits[i, 0] = props["lower"][i].item()
@@ -491,7 +492,7 @@ class IsaacGym(BaseSimulator):
 
     def find_rigid_body_indice(self, body_name):
         return self.gym.find_actor_rigid_body_handle(self.envs[0], self.robot_handles[0], body_name)
-
+    
     def prepare_sim(self):
         self.gym.prepare_sim(self.sim)
         # Refresh tensors BEFORE we acquire them https://forums.developer.nvidia.com/t/isaacgym-preview-4-actor-root-state-returns-nans-with-isaacgymenvs-style-task/223738/4
@@ -512,7 +513,7 @@ class IsaacGym(BaseSimulator):
 
         # sensor_tensor = self.gym.acquire_force_sensor_tensor(self.sim)
         # dof_force_tensor = self.gym.acquire_dof_force_tensor(self.sim)
-
+        
         self.refresh_sim_tensors()
 
         self.all_root_states: Tensor = gymtorch.wrap_tensor(actor_root_state)
@@ -561,17 +562,17 @@ class IsaacGym(BaseSimulator):
 
     def set_actor_root_state_tensor(self, set_env_ids, root_states):
         set_env_ids_int32 = set_env_ids.to(torch.int32)
-
-        self.gym.set_actor_root_state_tensor_indexed(self.sim,
-                                                    gymtorch.unwrap_tensor(root_states),
-                                                    gymtorch.unwrap_tensor(set_env_ids_int32),
+        
+        self.gym.set_actor_root_state_tensor_indexed(self.sim, 
+                                                    gymtorch.unwrap_tensor(root_states), 
+                                                    gymtorch.unwrap_tensor(set_env_ids_int32), 
                                                     len(set_env_ids_int32))
 
     def set_dof_state_tensor(self, set_env_ids, dof_states):
         set_env_ids_int32 = set_env_ids.to(torch.int32)
-        self.gym.set_dof_state_tensor_indexed(self.sim,
-                                             gymtorch.unwrap_tensor(dof_states),
-                                             gymtorch.unwrap_tensor(set_env_ids_int32),
+        self.gym.set_dof_state_tensor_indexed(self.sim, 
+                                             gymtorch.unwrap_tensor(dof_states), 
+                                             gymtorch.unwrap_tensor(set_env_ids_int32), 
                                              len(set_env_ids_int32))
 
     def simulate_at_each_physics_step(self):
@@ -649,7 +650,7 @@ class IsaacGym(BaseSimulator):
         )
         self.gym.subscribe_viewer_keyboard_event(
             self.viewer, gymapi.KEY_L, "height_down"
-        )
+        )        
 
         sim_params = self.sim_params
         if sim_params.up_axis == gymapi.UP_AXIS_Z:
@@ -678,58 +679,45 @@ class IsaacGym(BaseSimulator):
             elif evt.action == "toggle_viewer_sync" and evt.value > 0:
                 self.enable_viewer_sync = not self.enable_viewer_sync
             elif evt.action == "forward_command" and evt.value > 0:
-                if hasattr(self, "commands"):
-                    self.commands[:, 0] += 0.1
-                    logger.info(f"Current Command: {self.commands[:, ]}")
+                self.commands[:, 0] += 0.1
+                logger.info(f"Current Command: {self.commands[:, ]}")
             elif evt.action == "backward_command" and evt.value > 0:
-                if hasattr(self, "commands"):
-                    self.commands[:, 0] -= 0.1
-                    logger.info(f"Current Command: {self.commands[:, ]}")
+                self.commands[:, 0] -= 0.1
+                logger.info(f"Current Command: {self.commands[:, ]}")
             elif evt.action == "left_command" and evt.value > 0:
-                if hasattr(self, "commands"):
-                    self.commands[:, 1] -= 0.1
-                    logger.info(f"Current Command: {self.commands[:, ]}")
+                self.commands[:, 1] -= 0.1
+                logger.info(f"Current Command: {self.commands[:, ]}")
             elif evt.action == "right_command" and evt.value > 0:
-                if hasattr(self, "commands"):
-                    self.commands[:, 1] += 0.1
-                    logger.info(f"Current Command: {self.commands[:, ]}")
+                self.commands[:, 1] += 0.1
+                logger.info(f"Current Command: {self.commands[:, ]}")
             elif evt.action == "heading_left_command" and evt.value > 0:
-                if hasattr(self, "commands"):
-                    self.commands[:, 3] -= 0.1
-                    logger.info(f"Current Command: {self.commands[:, ]}")
+                self.commands[:, 3] -= 0.1
+                logger.info(f"Current Command: {self.commands[:, ]}")
             elif evt.action == "heading_right_command" and evt.value > 0:
-                if hasattr(self, "commands"):
-                    self.commands[:, 3] += 0.1
-                    logger.info(f"Current Command: {self.commands[:, ]}")
+                self.commands[:, 3] += 0.1
+                logger.info(f"Current Command: {self.commands[:, ]}")
             elif evt.action == "zero_command" and evt.value > 0:
-                if hasattr(self, "commands"):
-                    self.commands[:, :4] = 0
-                    logger.info(f"Current Command: {self.commands[:, ]}")
+                self.commands[:, :4] = 0
+                logger.info(f"Current Command: {self.commands[:, ]}")
             # EE commands
             elif evt.action == "ee_forward_command" and evt.value > 0:
-                if hasattr(self, "commands"):
-                    self.commands[:, 5] += 0.05
-                    logger.info(f"Current Command: {self.commands[:, ]}")
+                self.commands[:, 5] += 0.05
+                logger.info(f"Current Command: {self.commands[:, ]}")
             elif evt.action == "ee_backward_command" and evt.value > 0:
-                if hasattr(self, "commands"):
-                    self.commands[:, 5] -= 0.05
-                    logger.info(f"Current Command: {self.commands[:, ]}")
+                self.commands[:, 5] -= 0.05
+                logger.info(f"Current Command: {self.commands[:, ]}")
             elif evt.action == "ee_open_command" and evt.value > 0:
-                if hasattr(self, "commands"):
-                    self.commands[:, 6] += 0.05
-                    logger.info(f"Current Command: {self.commands[:, ]}")
+                self.commands[:, 6] += 0.05
+                logger.info(f"Current Command: {self.commands[:, ]}")
             elif evt.action == "ee_close_command" and evt.value > 0:
-                if hasattr(self, "commands"):
-                    self.commands[:, 6] -= 0.05
-                    logger.info(f"Current Command: {self.commands[:, ]}")
+                self.commands[:, 6] -= 0.05
+                logger.info(f"Current Command: {self.commands[:, ]}")
             elif evt.action == "ee_height_up_command" and evt.value > 0:
-                if hasattr(self, "commands"):
-                    self.commands[:, 7] += 0.05
-                    logger.info(f"Current Command: {self.commands[:, ]}")
+                self.commands[:, 7] += 0.05
+                logger.info(f"Current Command: {self.commands[:, ]}")
             elif evt.action == "ee_height_down_command" and evt.value > 0:
-                if hasattr(self, "commands"):
-                    self.commands[:, 7] -= 0.05
-                    logger.info(f"Current Command: {self.commands[:, ]}")
+                self.commands[:, 7] -= 0.05
+                logger.info(f"Current Command: {self.commands[:, ]}")
             elif evt.action == "push_robots" and evt.value > 0:
                 logger.info("Push Robots")
                 self._push_robots(torch.arange(self.num_envs, device=self.device))
@@ -745,13 +733,11 @@ class IsaacGym(BaseSimulator):
                 self.user_recording_state_change = False
                 delete_user_viewer_recordings = True
             elif evt.action == "height_up" and evt.value > 0:
-                if hasattr(self, "commands"):
-                    self.commands[:, 4] += 0.1
-                    logger.info(f"Current Command: {self.commands[:, ]}")
+                self.commands[:, 4] += 0.1
+                logger.info(f"Current Command: {self.commands[:, ]}")
             elif evt.action == "height_down" and evt.value > 0:
-                if hasattr(self, "commands"):
-                    self.commands[:, 4] -= 0.1
-                    logger.info(f"Current Command: {self.commands[:, ]}")
+                self.commands[:, 4] -= 0.1
+                logger.info(f"Current Command: {self.commands[:, ]}")
 
         # fetch results
         if self.device != 'cpu':

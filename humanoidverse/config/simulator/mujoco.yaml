@@ -1,0 +1,18 @@
+# @package _global_
+
+# Env structure
+simulator:
+  _target_: humanoidverse.simulator.mujoco.mujoco.MuJoCo
+  _recursive_: False
+  config:
+    name: "mujoco"
+    terrain: ${terrain}
+    sim:
+      fps: 500
+      control_decimation: 10
+      # fps: 200
+      # control_decimation: 4
+      render_mode: "human" # [None, "human", "rgb_array"]
+    scene:
+      num_envs: ${num_envs}
+      env_spacing: ${env.config.env_spacing}

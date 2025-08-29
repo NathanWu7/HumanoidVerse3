@@ -1,0 +1,40 @@
+
+deploy:
+  deploy_mode: "single"
+  
+  BYPASS_ACT: False
+  SWITCH_EMA: True
+
+  render: True
+  defcmd: [0.0, 0.0, 0.0, 0.0]
+  heading_cmd: True
+
+  ctrl_dt: 0.02
+  net: ???
+  msg_type: "hg"     # "hg" or "go", currently only "hg" is supported
+  imu_type: "pelvis"    # "torso" or "pelvis", currently only "pelvis" is supported
+  mode_machine: 5
+
+  lowcmd_topic: "rt/lowcmd"
+  lowstate_topic: "rt/lowstate"
+  # lowcmd_topic: "low_cmd_topic"
+  # lowstate_topic: "low_state_topic"
+
+  dof_idx_23_to_29: [ 0, 1, 2, 3, 4, 5,
+                      6, 7, 8, 9, 10, 11,
+                      12,13,14,
+                      15,16,17,18,
+                      22,23,24,25,]
+  locked_kp: 40
+  locked_kd: 1
+
+  # leg_joint2motor_idx: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+  # arm_waist_joint2motor_idx: [12, 13, 14, 
+  #                             15, 16, 17, 18, 19, 20, 21, 
+  #                             22, 23, 24, 25, 26, 27, 28]
+
+
+env:
+  config:
+    save_motion: True
+    save_note: null

@@ -1,6 +1,20 @@
-init_policy_path: "humanoid_sim2real/models/policy_locomotion.pt"
+init_policy_path: "humanoid_sim2real/ckpt_demo/policy_locomotion.pt"
 # logs/Locomotion/isaacsim45/dateandtime/model_50000.pt
-action_policy_path: "humanoid_sim2real/models/horse_stance_punch_model_33000.onnx"
+action_policy_path: "humanoid_sim2real/ckpt_demo/horse_stance_punch_model_33000.onnx"
+
+# 观测和动作缩放参数 (对应硬件代码中的scale参数)
+scale_base_ang_vel: 0.25
+scale_project_gravity: 1.0
+scale_dof_pos: 1.0
+scale_dof_vel: 0.05
+scale_actions: 0.25
+scale_base_force: 0.01
+scale_ref_motion_phase: 1.0
+
+# 观测和动作维度参数
+num_actions: 23
+num_observations: 76
+obs_context_len: 5
 
 # for init policy
 init_num_obs: 104

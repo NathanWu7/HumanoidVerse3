@@ -3,9 +3,9 @@
 use_wandb: True
 
 wandb:
-  wandb_project: humanoidverse
-  wandb_tags: null
+  wandb_project: null
+  wandb_tags: 'online' # 'online' or 'offline' or 'disabled'
   wandb_group: null
   wandb_id: null
-  wandb_entity: yuanhang0610
+  wandb_entity: agileh2o
   wandb_dir: ${experiment_dir}/.wandb

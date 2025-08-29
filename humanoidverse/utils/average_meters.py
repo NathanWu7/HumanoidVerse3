@@ -48,7 +48,7 @@ class TensorAverageMeter:
         if cat.numel() == 0:
             return 0
         else:
-            return cat.mean(dtype=torch.float32)
+            return cat.mean()
 
     def clear(self):
         self.tensors = []
