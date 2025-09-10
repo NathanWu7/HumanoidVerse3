@@ -17,12 +17,11 @@ conda activate your_env_name  # 替换为你的环境名
 
 ### 基本启动命令
 ```bash
-# 方法1: 直接在项目根目录运行
-cd /home/jxr/HumanoidVerse3
-python -m humanoid_sim2real.sim2sim.deploy_mujoco_sim_kungfu
+# 方法1: 在项目根目录运行
+python -m humanoid_sim2real.sim2sim.sim2sim
 
-# 方法2: 在sim2sim目录中运行
-cd /home/jxr/HumanoidVerse3/humanoid_sim2real/sim2sim
+# 方法2: 在 sim2sim 目录中运行
+cd humanoid_sim2real/sim2sim
 python sim2sim.py
 ```
 

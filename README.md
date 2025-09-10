@@ -1,4 +1,4 @@
-# HumanoidVerse3: 多仿真器人形机器人仿真到真实学习框架
+# HumanoidVerse3: A Multi‑Simulator Sim‑to‑Real Framework for Humanoid Robots
 
 [![IsaacSim](https://img.shields.io/badge/IsaacSim-4.5.0-silver.svg)](https://docs.omniverse.nvidia.com/isaacsim/latest/overview.html)
 [![IsaacLab](https://img.shields.io/badge/IsaacLab-2.0.2-silver)](https://isaac-sim.github.io/IsaacLab/)
@@ -6,236 +6,287 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)]()
 
 <p align="center">
-  <img width="400" src="pics/framework.png">
+  <img width="400" src="pics/framework.png" />
+  <br/>
+  <i>Unified learning and deployment pipeline for humanoid robots.</i>
+  <br/>
+  <a href="README_zh.md">中文文档</a>
 </p>
 
-## 概述
+HumanoidVerse3 is a modular, production‑oriented framework for humanoid robot learning across multiple simulators with a unified API. It supports end‑to‑end workflows from large‑scale reinforcement learning to Sim2Sim verification and real‑world deployment, focusing on whole‑body control and highly dynamic skills.
 
-HumanoidVerse3是一个高度集成的人形机器人仿真到真实部署框架，支持多种主流仿真环境和机器人平台。该框架采用模块化架构设计，提供统一的API接口，支持在不同仿真器之间无缝切换，并提供从强化学习训练到实际硬件部署的完整工作流程。
+- Unified abstraction across simulators (Isaac Gym, Isaac Sim, Genesis; MuJoCo for Sim2Sim)
+- Task suites for motion tracking and legged locomotion, plus extensible task composition
+- Sim2Real pipeline with a unified robot control interface (URCI), ONNX/JIT export, and robustness options (noise, delay, masking)
+- Motion processing toolbox (MotionHub) with retargeting for humanoid robots
+- Hydra‑based configuration for reproducible experiments at scale
 
-[中文文档](README_V3_zh.md) | [快速开始](#快速开始) | [详细文档](README_V2.md)
+Quick links:
+- Chinese README: README_zh.md
+- Sim2Sim deployment guide: humanoid_sim2real/README_sim2sim_setup.md
 
-## 核心特性
+## Features
 
-### 多仿真器支持
-该框架集成了当前主流的机器人仿真环境，提供统一的接口层：
-- **Isaac Gym** - NVIDIA高性能GPU并行仿真环境，支持大规模强化学习训练
-- **Isaac Sim** - 基于Omniverse平台的高保真仿真环境，支持PhotoRealistic渲染
-- **Genesis** - 现代化物理引擎仿真器，提供高精度物理模拟
-- **MuJoCo** - 灵活的刚体动力学仿真系统，适用于机器人控制研究
+- Multi‑Simulator Support
+  - Isaac Gym for high‑throughput RL on GPU
+  - Isaac Sim for photorealistic, high‑fidelity simulation on Omniverse
+  - Genesis for modern, high‑precision dynamics
+  - MuJoCo as a lightweight Sim2Sim verification environment
+- Task Environments
+  - Motion tracking from mocap/video to robot joint space
+  - Legged base tasks and extensible, modular tasks
+- Sim2Real Deployment
+  - Unified Robot Control Interface (URCI) for both simulation and hardware
+  - ONNX/JIT export for low‑latency inference
+  - Robustness injection: noise, delay, masking, IMU perturbations
+- Engineering Foundation
+  - Modular components, clear separation of concerns
+  - Hydra configuration with structured defaults and overrides
+  - Integrated logging and experiment tracking (TensorBoard, Weights & Biases)
 
+## System Requirements
 
-### 任务环境
-提供多种预定义的任务环境和运动技能：
-- **运动跟踪** - 基于视频数据的人体运动捕捉与机器人运动重现
-- **自定义任务** - 基于模块化架构的任务扩展能力
+- Python ≥ 3.8
+- PyTorch ≥ 1.12
+- CUDA ≥ 11.0 (for GPU acceleration)
+- Isaac Gym (Preview 4)
+- Isaac Sim 4.5.0 (+ Isaac Lab 2.0.2)
+- Genesis 0.2.1
 
-### Sim2Real部署
-完整的仿真到真实部署管道：
-- **硬件接口** - 支持实际机器人硬件的完整控制接口
-- **sim2sim验证** - 使用mujoco进行验证
-- **模型优化** - 基于ONNX的推理优化，支持实时控制
+Note: Install simulator‑specific dependencies inside separate environments as recommended below.
 
-## 系统要求
+## Installation
 
-| 组件 | 版本要求 | 用途 |
-|------|---------|------|
-| Python | ≥3.8 | 核心运行时环境 |
-| PyTorch | ≥1.12 | 深度学习框架 |
-| CUDA | ≥11.0 | GPU加速计算 |
-| Isaac Gym | Preview 4 | NVIDIA GPU仿真 |
-| Isaac Sim | 4.5.0 | Omniverse仿真平台 |
-| Genesis | 0.2.1 | 现代物理仿真引擎 |
-
-## 安装指南
-
-### 1. 环境准备
+Create separate conda environments for each simulator to avoid dependency conflicts:
 
 ```bash
-# 克隆项目
 git clone https://github.com/nathanwu7/HumanoidVerse3.git
 cd HumanoidVerse3
 
-# 为每个仿真器创建独立的conda环境
-conda create -n hgym python=3.8    # IsaacGym环境
-conda create -n hsim python=3.10   # IsaacSim环境
-conda create -n hgen python=3.10   # Genesis环境
+# Per‑simulator envs
+conda create -n hgym python=3.8     # Isaac Gym
+conda create -n hsim python=3.10    # Isaac Sim
+conda create -n hgen python=3.10    # Genesis
 ```
 
-### 2. 安装Isaac Gym
+Isaac Gym:
 
 ```bash
 conda activate hgym
 
-# 下载Isaac Gym
+# Download and unpack Isaac Gym Preview 4 (follow NVIDIA instructions/URL)
 cd ../
 wget https://developer.nvidia.com/isaac-gym-preview-4
 tar -xvzf isaac-gym-preview-4
 
-# 安装Python API
+# Python API
 pip install -e ./isaacgym/python/
 
-# 配置环境变量以处理共享库问题ImportError: libpython3.8.so.1.0: cannot open shared object file: No such file or directory
-
-# 激活环境时自动设置LD_LIBRARY_PATH
+# ld path fix for libpython on env activation
 cd $CONDA_PREFIX
-mkdir -p ./etc/conda/activate.d
+mkdir -p ./etc/conda/activate.d ./etc/conda/deactivate.d
 cat > ./etc/conda/activate.d/env_vars.sh << 'EOF'
 export OLD_LD_LIBRARY_PATH=${LD_LIBRARY_PATH}
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib
 EOF
-
-# 退出环境时恢复LD_LIBRARY_PATH
-mkdir -p ./etc/conda/deactivate.d
 cat > ./etc/conda/deactivate.d/env_vars.sh << 'EOF'
 export LD_LIBRARY_PATH=${OLD_LD_LIBRARY_PATH}
 unset OLD_LD_LIBRARY_PATH
 EOF
 
-# 安装HumanoidVerse3
-cd HumanoidVerse3
+# Install HumanoidVerse3
+cd -    # back to HumanoidVerse3
 pip install -e .
 pip install -e humanoidverse/isaac_utils
-# 重要：重新激活环境以使环境变量生效
+
+# Re‑activate to ensure env vars take effect
 conda deactivate
 conda activate hgym
 ```
 
-### 3. 安装Isaac Sim
+Isaac Sim:
 
 ```bash
 conda activate hsim
-
-# 按照官方文档安装Isaac Sim和Isaac Lab
+# Follow official Isaac Sim + Isaac Lab installation:
 # https://isaac-sim.github.io/IsaacLab/main/source/setup/installation/binaries_installation.html
 
-# 安装HumanoidVerse3
 pip install -e .
 pip install -e humanoidverse/isaac_utils
-### 4. 安装Genesis
+```
+
+Genesis:
 
 ```bash
 conda activate hgen
-
-# 安装Genesis
 pip install torch
 pip install genesis-world==0.2.1
 
-# 安装HumanoidVerse3
 pip install -e .
 pip install -e humanoidverse/isaac_utils
+```
 
-## 快速开始
+## Quick Start
 
-### 训练示例
+Training (Isaac Gym):
 
 ```bash
-# 确保在Isaac Gym环境中
 conda activate hgym
-
-# Isaac Gym环境训练运动跟踪任务
 python humanoidverse/train_agent.py +simulator=isaacgym +exp=motion_tracking
 ```
 
-### 评估示例
+Evaluation and Export:
 
 ```bash
-# 加载训练好的模型进行评估
 python humanoidverse/eval_agent.py \
   +checkpoint=logs/MotionTracking/xxx.pt \
   headless=False
 ```
 
-### Sim2Real部署
+During evaluation, ONNX export can be enabled and produces an exported policy beside the checkpoint.
+
+Sim2Sim Demo (MuJoCo):
 
 ```bash
-# 启动MuJoCo仿真验证
-python -m humanoid_sim2real.sim2sim.deploy_mujoco_sim_kungfu
+python -m humanoid_sim2real.sim2sim.sim2sim
 ```
 
-## 项目结构
+## Repository Structure
 
 ```
-HumanoidVerse3/
-├── humanoidverse/              # 核心框架代码
-│   ├── agents/                 # 强化学习算法
-│   │   ├── ppo/               # PPO算法实现
-│   │   └── mh_ppo/            # 多头PPO算法
-│   ├── envs/                  # 环境定义
-│   │   ├── motion_tracking/   # 运动跟踪任务
-│   │   └── legged_base_task/  # 基础腿部控制任务
-│   ├── simulator/             # 仿真器接口
-│   │   ├── isaacgym/         # IsaacGym接口
-│   │   ├── isaacsim/         # IsaacSim接口
-│   │   └── genesis/          # Genesis接口
-│   └── utils/                # 工具函数
-├── humanoid_sim2real/         # Sim2Real部署工具
-│   ├── ckpt_demo/            # 预训练模型
-│   ├── configs/              # 部署配置
-│   └── motion_lib/           # 运动库
-├── data/                     # 数据资源
-│   ├── motions/              # 运动数据
-│   │   ├── PBHC/            # 武术动作数据
-│   │   └── GVHMR/           # 通用运动数据
-│   └── robots/               # 机器人模型
-│       ├── g1/               # G1机器人模型
-│       └── h1/               # H1机器人模型
-└── configs/                  # Hydra配置文件
-    ├── robot/                # 机器人配置
-    ├── simulator/            # 仿真器配置
-    └── exp/                  # 实验配置
+humanoidverse/              # Core framework
+  agents/                   # RL algorithms (PPO, multi-head PPO) and analysis callbacks
+  envs/                     # Task environments (motion tracking, legged base)
+  simulator/                # Simulator adapters (Isaac Gym/Sim, Genesis)
+  deploy/                   # URCI abstractions, MuJoCo deployment, policy routing
+  utils/                    # Config/logging/inference/motion utilities
+humanoid_sim2real/          # Sim2Real configs, Sim2Sim demo, motion library, hardware scripts
+MotionHub/                  # Motion processing + SMPL retargeting pipeline
+data/                       # Motions and robot assets (e.g., G1, H1)
+configs/                    # Hydra configuration (robot/simulator/experiment)
 ```
 
-## 运动数据
+## Motion Data
 
-本框架集成了多种人体运动数据集，支持复杂动态动作的学习与重现：
+The framework includes diverse motion sets, enabling learning and reproduction of complex dynamic skills.
 
-### 武术动作数据集 (PBHC)
-框架内置基于Physics-Based Humanoid Control (PBHC) 的武术动作数据：
-- **马步冲拳** - 传统武术基础动作，包含身体平衡与力量控制
-- **侧踢** - 高难度单腿平衡踢击动作
-- **后旋踢** - 涉及复杂旋转运动的连续动作
-- **钩拳** - 快速连续打击动作序列
+- PBHC‑based martial arts skills: horse stance + punch, side kick, spinning back kick, hook punch
+- Dance motions: Charleston, Bruce Lee–style iconic moves
+- MotionHub: end‑to‑end pipeline for video mocap/pose, human‑to‑robot retargeting, physics‑based smoothing
 
-### 舞蹈动作数据
-提供多种舞蹈动作的运动捕捉数据：
-- **Charleston舞** - 经典摆摆舞动作序列
-- **Bruce Lee动作** - 标志性功夫动作姿态
+## Design
 
-### 运动数据处理工具链（MotionHub）
-完整的运动数据处理管道：
-- 视频运动捕捉和关键点提取
-- 人体运动到机器人关节空间的自动映射
-- 基于PBHC算法框架的运动优化和平滑处理
+- Modularity and Abstractions
+  - Unified simulator adapters with consistent APIs
+  - URCI (URCIRobot) for both simulation and real robots, shared observation/action shaping
+  - Robustness options (noise, delay, IMU perturbations) for Sim2Real gap reduction
+- Configuration and Logging
+  - Hydra configs in `humanoidverse/config` for reproducibility and flexible overrides
+  - Integrated Loguru, TensorBoard, W&B for experiment tracking
+- Deployment
+  - Export policies as TorchScript or ONNX
+  - MuJoCo‑based Sim2Sim validation; hardware scripts and configs under `humanoid_sim2real/`
 
-## 技术特色
+## Documentation
 
-### 模块化架构设计
-- **BaseManager** - 提供统一的组件生命周期管理
-- **BaseComponent** - 支持算法组件的模块化开发
-- **Hydra配置系统** - 实现灵活的超参数管理和实验配置
+- Sim2Sim deployment: humanoid_sim2real/README_sim2sim_setup.md
+- Config references: humanoidverse/config/
 
-### 多仿真器一致性
-- 统一的抽象API接口，屏蔽底层仿真器差异
-- 自动化的参数转换和适配机制
-- 支持跨仿真器的模型迁移和验证
+If you need additional task‑ or robot‑specific docs, please open an issue or PR.
 
-### 高级运动控制算法
-- 基于物理约束的全身控制策略
-- 支持复杂动态技能的强化学习
-- 实时优化算法确保控制的稳定性和精确性
+## GMR Retarget Integration
 
-## 文档和资源
+This repo includes a General Motion Retargeting (GMR) pipeline under `GMR/` for converting SMPL‑X motions to robot joint trajectories.
 
-详细的使用说明请参考：
+- Prerequisites
+  - Follow `GMR/README.md` to set up GMR and download SMPL‑X body models to `GMR/assets/body_models`.
+  - Prepare SMPL‑X motions (e.g., AMASS/OMOMO) in a folder.
 
-- [训练指南](README_V2.md) - 完整的训练流程
-- [Sim2Real部署](humanoid_sim2real/README_sim2sim_setup.md) - 部署指南
-- [配置说明](humanoidverse/config/) - 参数配置详解
+- Step 1: Retarget SMPL‑X to your robot (example: Unitree G1)
+  ```bash
+  python GMR/scripts/smplx_to_robot_dataset.py \
+    --robot unitree_g1 \
+    --src_folder /path/to/smplx_motions \
+    --tgt_folder GMR/out/g1
+  ```
 
-## 相关工作
+- Step 2: Convert GMR outputs to MotionLib format for training
+  ```bash
+  python -m humanoidverse.utils.gmr.convert_gmr_to_motionlib \
+    --src GMR/out/g1 \
+    --xml data/robots/g1/g1_29dof_anneal_23dof.xml \
+    --out data/motions/GMR/g1/accad_1.pkl
+  ```
+  - Produces a single training file (dict‑of‑one‑motion) with the fields expected by training and preview.
+  - DOF mapping: by default maps Unitree G1 29→23 (removes wrist DOFs). If your source MJCF differs, you can pass `--src-xml` to align by joint names.
+  - Interpolation: default 30/30 start/end frames; root rotation is frozen, root position only interpolates Z (XY hold). Set `--interp-start 0 --interp-end 0` to disable.
+  - MotionHub parity: appends 3 zero AA joints for extended bodies (hands, head), and computes `contact_mask` via FK; also fills `smpl_joints` for analysis/vis.
 
-本项目基于以下优秀工作：
+- (Optional) Visualize a converted motion
+  ```bash
+  python -m humanoidverse.utils.gmr.view_converted_motion \
+    --motion data/motions/GMR/g1/accad_1.pkl \
+    --xml data/robots/g1/g1_29dof_anneal_23dof.xml
+  ```
+  - The viewer automatically slices extra trailing joints (e.g., the 3 extended bodies) to match the XML motor count.
+
+- Step 3: Point your training config to the converted dataset
+  - In `humanoidverse/config/exp/motion_tracking.yaml` or your robot config override, set:
+    ```yaml
+    robot:
+      motion:
+        motion_file: data/motions/GMR/g1
+    ```
+- Then run training as usual (pass a single .pkl file):
+  ```bash
+  conda activate hgym
+  python humanoidverse/train_agent.py +simulator=isaacgym +exp=motion_tracking robot.motion.motion_file=data/motions/GMR/g1/accad_1.pkl
+  ```
+
+Compatibility
+- Training: Converted files expose `fps`, `root_trans_offset`, `pose_aa`, `dof`, `root_rot`, and also include `smpl_joints` and `contact_mask` for MotionHub‑style features.
+- Deployment/Sim2Sim: The same MotionLib readers are used in deployment tools; converted files are fully compatible.
+
+### Format Differences: GMR vs MotionLib
+
+- GMR output (per‑motion .pkl)
+  - `fps` (int): source motion sampling rate.
+  - `root_pos` (T, 3): world translation of the root over time.
+  - `root_rot` (T, 4): root orientation as XYZW quaternion over time.
+  - `dof_pos` (T, D): scalar joint angles (radians) in the robot DOF order used by GMR.
+  - Optional: `local_body_pos`, `link_body_list` (for diagnostics/vis; not required for training).
+
+- MotionLib format (this repo’s training/deploy input)
+  - `fps` (int): motion sampling rate (used to determine dt = 1/fps when building states).
+  - `root_trans_offset` (T, 3): root world translation used by the environment/task.
+  - `pose_aa` (T, 1 + D + 3, 3): axis‑angle representation for root and joints plus 3 extended bodies:
+    - `pose_aa[:, 0, :]`: root rotation as a rotation vector (rotvec); converted from `root_rot` (XYZW).
+    - `pose_aa[:, 1:1+D, :]`: per‑joint axis‑angle, `axis_i * angle_i`, where `axis_i` is from the MJCF motor’s joint axis.
+    - `pose_aa[:, 1+D:, :]`: three zero AA vectors for [left_hand, right_hand, head] extended bodies.
+  - `dof` (T, D): scalar joint angles (radians) aligned to the target MJCF motor order.
+  - `root_rot` (T, 4): XYZW quaternions for the root.
+  - `contact_mask` (T, 2): [left, right] foot contact (velocity + height threshold via FK).
+  - `smpl_joints` (T, NB, 3): global joint positions from FK (includes extended bodies when configured).
+
+- Why convert: MotionLib expects unified axis‑angle kinematics across root and joints, and uses robot MJCF to determine joint axes and ordering (motor order). GMR provides quaternion + scalar angles; the converter bridges these conventions.
+
+- Joint ordering and 29→23 mapping (Unitree G1)
+  - MotionLib uses the target XML’s motor order; GMR may export 29 DoF including wrists, while training often uses a 23 DoF robot (wrists removed).
+  - The converter either:
+    - Aligns by joint names when `--src-xml` is provided, dropping missing wrists; or
+    - Applies a safe built‑in 29→23 subset for G1 when `--src-xml` is omitted (drops L/R wrist roll/pitch/yaw).
+
+Key meanings inside MotionLib
+- `fps`: sets the motion dt used when sampling frames and blending.
+- `root_trans_offset`: drives the base position trajectory for the reference motion.
+- `pose_aa`: provides root orientation and joint target poses in axis‑angle; the loaders compute FK, velocities and observations from it. The extra 3 joints are no‑ops but align with motion tracking’s extended body pipeline.
+
+Notes
+- The converter attempts to compute `contact_mask`/`smpl_joints` via FK. If optional deps are missing, it falls back to defaults (uniform 0.5 contacts, zero joints), which still works for training.
+
+## Citation
+
+If you find this repository useful, please consider citing related prior work and releases:
 
 ```bibtex
 @misc{HumanoidVerse2,
@@ -262,17 +313,11 @@ HumanoidVerse3/
 }
 ```
 
+## License
 
-## 许可证
+This project is released under the MIT License. See LICENSE for details.
 
-本项目基于 MIT 许可证开源。详细信息请查看 [LICENSE](LICENSE) 文件。
+## Contact
 
-## 联系方式
-
-- 项目维护者: Qiwei Wu, Yixiao Feng, Xiangrui Jiang
-- 邮箱: nathan.wuqw@gmail.com
-
----
-
-
-
+Maintainers: Qiwei Wu, Yixiao Feng, Xiangrui Jiang  
+Email: nathan.wuqw@gmail.com

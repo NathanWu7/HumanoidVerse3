@@ -15,7 +15,7 @@ project_name: MotionTracking
 # Robot motion file override
 robot:
   motion:
-    motion_file: data/motions/GVHMR/Khalil/smpl_cont_mask.pkl
+    motion_file: data/motions/GMR/g1/accad_1.pkl
 
 # Training parameters
 num_envs: 4096
